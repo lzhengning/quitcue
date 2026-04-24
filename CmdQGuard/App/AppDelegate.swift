@@ -3,22 +3,23 @@ import SwiftUI
 
 /// Bridges NSApplication lifecycle events into the SwiftUI scene graph,
 /// owns the app-level singletons (`WhitelistStore`, `AccessibilityPermission`,
-/// `CmdQInterceptor`), and starts the event tap once AX trust is granted.
+/// `CmdQInterceptor`, `OverlayController`), and wires the interceptor ↔
+/// overlay ↔ termination pipeline.
 ///
 /// CmdQGuard runs as an `LSUIElement` (no Dock, no persistent menubar). The
 /// onboarding window opens automatically on launch via SwiftUI's default
 /// behavior; the view self-dismisses if onboarding has already been
 /// completed, leaving the app running silently with only the overlay panel
 /// available.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let whitelist = WhitelistStore()
     let accessibility = AccessibilityPermission()
+    let overlay = OverlayController()
     private(set) lazy var interceptor = CmdQInterceptor(store: whitelist)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // UI-test convenience: `-CmdQGuard.showSettingsOnLaunch YES` is
-        // honored by OnboardingView via @Environment(\.openSettings) so the
-        // Settings scene is opened from within SwiftUI's own scene graph.
+        wireOverlayPipeline()
         startInterceptorIfAuthorized()
 
         NotificationCenter.default.addObserver(
@@ -27,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
+
+        #if DEBUG
+        debugForceOverlayIfRequested()
+        #endif
     }
 
     @objc private func appDidBecomeActive() {
@@ -35,10 +40,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startInterceptorIfAuthorized()
     }
 
+    private func wireOverlayPipeline() {
+        interceptor.onCmdQDown = { [weak self] bundleID, appName in
+            self?.overlay.handleCmdQDown(bundleID: bundleID, appName: appName)
+        }
+        interceptor.onCmdQUp = { [weak self] in
+            self?.overlay.handleCmdQUp()
+        }
+        overlay.onConfirm = { bundleID in
+            guard let bundleID else { return }
+            for running in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) {
+                running.terminate()
+            }
+        }
+    }
+
     private func startInterceptorIfAuthorized() {
         guard accessibility.isGranted else { return }
         interceptor.start()
     }
+
+    #if DEBUG
+    /// Honors `-CmdQGuard.showOverlayOnLaunch hold|double`. Test-only path;
+    /// production builds skip this entirely because of the `#if DEBUG`.
+    private func debugForceOverlayIfRequested() {
+        let defaults = UserDefaults.standard
+        guard let raw = defaults.string(forKey: "CmdQGuard.showOverlayOnLaunch"),
+              let mode = ConfirmMode(rawValue: raw) else { return }
+        DispatchQueue.main.async {
+            self.overlay.debugForceShow(mode: mode, appName: "Debug Target")
+        }
+    }
+    #endif
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Ghost mode: keep running so the overlay can appear on demand, even

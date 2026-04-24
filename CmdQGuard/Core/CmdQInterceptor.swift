@@ -1,9 +1,15 @@
 import AppKit
 import CoreGraphics
 
-/// Installs a session-level `CGEventTap` that intercepts ⌘Q keyDown events.
-/// The tap consults `WhitelistStore` + the frontmost app's bundle ID via
-/// `shouldBlockCmdQ` and either swallows or passes the event.
+/// Installs a session-level `CGEventTap` and routes key events into the
+/// overlay/confirm pipeline. Three event types are observed:
+///
+/// - `.keyDown` → `shouldBlockCmdQ` gate; on match, forwards a
+///   `onCmdQDown(bundleID, appName)` to the main actor and swallows.
+/// - `.keyUp`   → forwards `onCmdQUp()` when the released key is Q (used by
+///   hold-mode to cancel pre-confirm).
+/// - `.flagsChanged` → forwards `onCmdQUp()` when Command is released
+///   (cancels hold mode without needing the Q keyUp).
 ///
 /// AX trust is required to create the tap (see
 /// `AccessibilityPermission`). The interceptor is a no-op until `start()`
@@ -13,17 +19,21 @@ final class CmdQInterceptor {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
+    /// Dispatched on the main actor.
+    var onCmdQDown: (@MainActor @Sendable (_ bundleID: String?, _ appName: String?) -> Void)?
+    var onCmdQUp: (@MainActor @Sendable () -> Void)?
+
     init(store: WhitelistStore) {
         self.store = store
     }
 
-    /// Installs the tap on the main run loop. Returns `false` if the tap
-    /// could not be created — typically because AX trust isn't granted.
     @discardableResult
     func start() -> Bool {
         guard tap == nil else { return true }
 
         let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
+            | (1 << CGEventType.flagsChanged.rawValue)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
 
         let newTap = CGEvent.tapCreate(
@@ -47,9 +57,7 @@ final class CmdQInterceptor {
     }
 
     func stop() {
-        if let tap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-        }
+        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         }
@@ -61,26 +69,46 @@ final class CmdQInterceptor {
         guard let refcon else { return Unmanaged.passUnretained(event) }
         let me = Unmanaged<CmdQInterceptor>.fromOpaque(refcon).takeUnretainedValue()
 
-        // Re-enable after the system disables us on timeout / user input delay.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap = me.tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
 
-        guard type == .keyDown else { return Unmanaged.passUnretained(event) }
+        switch type {
+        case .keyDown:
+            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+            let flags = event.flags
+            let front = NSWorkspace.shared.frontmostApplication
+            let bundleID = front?.bundleIdentifier
+            let appName = front?.localizedName
 
-        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        let flags = event.flags
-        let frontBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            if shouldBlockCmdQ(
+                keyCode: keyCode,
+                flags: flags,
+                frontmostBundleID: bundleID,
+                whitelist: me.store.bundleIDs
+            ) {
+                if let handler = me.onCmdQDown {
+                    Task { @MainActor in handler(bundleID, appName) }
+                }
+                return nil
+            }
 
-        if shouldBlockCmdQ(
-            keyCode: keyCode,
-            flags: flags,
-            frontmostBundleID: frontBundle,
-            whitelist: me.store.bundleIDs
-        ) {
-            return nil
+        case .keyUp:
+            let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+            if keyCode == kVK_ANSI_Q, let handler = me.onCmdQUp {
+                Task { @MainActor in handler() }
+            }
+
+        case .flagsChanged:
+            if !event.flags.contains(.maskCommand), let handler = me.onCmdQUp {
+                Task { @MainActor in handler() }
+            }
+
+        default:
+            break
         }
+
         return Unmanaged.passUnretained(event)
     }
 }
