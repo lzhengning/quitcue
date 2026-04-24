@@ -9,6 +9,8 @@ struct CmdQGuardApp: App {
         // also reachable by the `onboarding` window id.
         Window("Welcome to CmdQGuard", id: WindowID.onboarding.rawValue) {
             OnboardingView()
+                .environment(appDelegate.whitelist)
+                .environment(appDelegate.accessibility)
                 .frame(minWidth: 480, minHeight: 560)
         }
         .windowStyle(.hiddenTitleBar)

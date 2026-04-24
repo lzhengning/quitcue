@@ -1,44 +1,51 @@
 import SwiftUI
 
-/// First-run setup flow. M1 scaffold — the real three-step stepper
-/// (Welcome → Accessibility → App Picker) is implemented in M4.
+/// Container for the four-step first-run flow. Owns an `OnboardingFlow`
+/// and routes into the step-specific view. If onboarding was already
+/// completed on a prior run the window auto-dismisses and — when a UI
+/// test has requested it via `-CmdQGuard.showSettingsOnLaunch` — opens
+/// the Settings (Control Panel) scene before closing.
 struct OnboardingView: View {
+    @Environment(WhitelistStore.self) private var whitelist
+    @Environment(AccessibilityPermission.self) private var accessibility
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
 
+    @State private var flow = OnboardingFlow()
+    @State private var apps: [InstalledApp] = []
+
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 48, weight: .regular))
-                .foregroundStyle(.tint)
-
-            Text("CmdQGuard")
-                .font(.largeTitle)
-                .fontWeight(.semibold)
-
-            Text("Silent ⌘Q guardian for macOS")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-
-            Text("Onboarding flow arrives in M4.")
-                .font(.callout)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 24)
+        Group {
+            switch flow.step {
+            case .welcome:
+                OnboardingWelcomeView(onNext: { flow.next() })
+            case .accessibility:
+                OnboardingAccessibilityView(accessibility: accessibility, onContinue: { flow.next() })
+            case .appPicker:
+                OnboardingAppPickerView(
+                    flow: flow,
+                    apps: apps,
+                    onFinish: { flow.finish(into: whitelist) }
+                )
+            case .done:
+                OnboardingDoneView(onDismiss: dismissSelf)
+            }
         }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if OnboardingState.isComplete {
                 if UserDefaults.standard.bool(forKey: "CmdQGuard.showSettingsOnLaunch") {
                     openSettings()
                 }
-                dismissWindow(id: WindowID.onboarding.rawValue)
+                dismissSelf()
+                return
+            }
+            if apps.isEmpty {
+                apps = AppInventory.scan()
             }
         }
     }
-}
 
-#Preview {
-    OnboardingView()
-        .frame(width: 480, height: 560)
+    private func dismissSelf() {
+        dismissWindow(id: WindowID.onboarding.rawValue)
+    }
 }
