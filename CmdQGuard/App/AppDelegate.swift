@@ -77,6 +77,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     #endif
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // The CGEventTap's run-loop source can otherwise keep the process
+        // alive past a terminate request; explicitly tear it down so
+        // XCUIApplication.launch()'s implicit "terminate existing instance
+        // before relaunching" doesn't hang.
+        interceptor.stop()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Keep running after the window closes so the CGEventTap can keep
         // intercepting ⌘Q in the background. The Dock icon stays visible so

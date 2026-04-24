@@ -53,7 +53,13 @@ final class OverlayController {
     func handleCmdQDown(bundleID: String?, appName: String?) {
         self.bundleID = bundleID
         self.appName = appName ?? bundleID ?? "this app"
-        if let source = settingsSource {
+        // Only rebuild the state machine from settings when we're entering
+        // a brand-new confirm session. While the machine is already
+        // progressing — macOS keyboard auto-repeat fires periodic keyDowns
+        // during a hold, and the second ⌘Q in double-press mode fires a
+        // fresh keyDown — we must NOT reset state, or hold would never
+        // accumulate and double-press would never reach `.confirmed`.
+        if machine.phase == .idle, let source = settingsSource {
             mode = source.mode
             machine = ConfirmStateMachine(mode: source.mode, config: source.config)
         }
@@ -135,5 +141,9 @@ final class OverlayController {
         setMode(mode)
         handleCmdQDown(bundleID: "com.example.debug", appName: appName)
     }
+
+    /// Expose the underlying state-machine phase for unit tests. Not for
+    /// production use.
+    var debugMachinePhase: ConfirmStateMachine.Phase { machine.phase }
     #endif
 }

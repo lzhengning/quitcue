@@ -2,15 +2,12 @@ import XCTest
 
 /// M2 smoke: Control Panel renders AX status row + whitelist rows injected
 /// via `launchArguments` (UserDefaults arg-domain override).
-final class ControlPanelUITests: XCTestCase {
-    override func setUp() {
-        continueAfterFailure = false
-    }
+final class ControlPanelUITests: CmdQGuardUITestCase {
 
     func testControlPanelShowsAccessibilityStatus() {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-com.cmdqguard.onboarding.completed", "YES",
+"-com.cmdqguard.onboarding.completed", "YES",
             "-CmdQGuard.showSettingsOnLaunch", "YES"
         ]
         app.launch()
@@ -31,7 +28,7 @@ final class ControlPanelUITests: XCTestCase {
     func testControlPanelListsInjectedWhitelist() {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-com.cmdqguard.onboarding.completed", "YES",
+"-com.cmdqguard.onboarding.completed", "YES",
             "-CmdQGuard.showSettingsOnLaunch", "YES",
             "-com.cmdqguard.whitelist.bundleIDs",
             "(\"com.apple.Safari\", \"com.apple.TextEdit\")"

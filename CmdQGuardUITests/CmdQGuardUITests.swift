@@ -1,16 +1,14 @@
 import XCTest
 
 /// M1 smoke coverage: activation policy + first-run onboarding window.
-final class CmdQGuardUITests: XCTestCase {
+final class CmdQGuardUITests: CmdQGuardUITestCase {
     private let bundleID = "com.cmdqguard.CmdQGuard"
-
-    override func setUp() {
-        continueAfterFailure = false
-    }
 
     func testAppLaunchesWithRegularActivationPolicy() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-com.cmdqguard.onboarding.completed", "YES"]
+        app.launchArguments = [
+"-com.cmdqguard.onboarding.completed", "YES"
+        ]
         app.launch()
         addTeardownBlock { app.terminate() }
 
@@ -25,7 +23,9 @@ final class CmdQGuardUITests: XCTestCase {
 
     func testOnboardingWindowAppearsOnFirstRun() {
         let app = XCUIApplication()
-        app.launchArguments = ["-com.cmdqguard.onboarding.completed", "NO"]
+        app.launchArguments = [
+"-com.cmdqguard.onboarding.completed", "NO"
+        ]
         app.launch()
         addTeardownBlock { app.terminate() }
 

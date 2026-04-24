@@ -3,13 +3,12 @@ import XCTest
 /// M3 smoke: the `OverlayController.debugForceShow` path puts an NSPanel on
 /// screen showing the Aurora Halo card. These tests assert the two
 /// mode-specific titles render.
-final class OverlayUITests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+final class OverlayUITests: CmdQGuardUITestCase {
 
     private func launch(mode: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-com.cmdqguard.onboarding.completed", "YES",
+"-com.cmdqguard.onboarding.completed", "YES",
             "-CmdQGuard.showOverlayOnLaunch", mode
         ]
         app.launch()

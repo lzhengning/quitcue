@@ -2,13 +2,12 @@ import XCTest
 
 /// M5 Control Panel expanded surface: confirm-method picker + duration
 /// slider + launch-at-login toggle + add/remove app affordances.
-final class ControlPanelM5UITests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+final class ControlPanelM5UITests: CmdQGuardUITestCase {
 
     private func launch(extraArgs: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
-            "-com.cmdqguard.onboarding.completed", "YES",
+"-com.cmdqguard.onboarding.completed", "YES",
             "-CmdQGuard.showSettingsOnLaunch", "YES"
         ] + extraArgs
         app.launch()

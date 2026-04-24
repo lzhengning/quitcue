@@ -2,13 +2,12 @@ import XCTest
 
 /// M4 onboarding coverage: welcome title, advance to Accessibility step,
 /// jump straight to the app picker via `onboardingStartStep` launch flag.
-final class OnboardingFlowUITests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+final class OnboardingFlowUITests: CmdQGuardUITestCase {
 
     private func launch(onboardingComplete: Bool, startStep: Int? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         var args = [
-            "-com.cmdqguard.onboarding.completed", onboardingComplete ? "YES" : "NO"
+"-com.cmdqguard.onboarding.completed", onboardingComplete ? "YES" : "NO"
         ]
         if let startStep {
             args += ["-CmdQGuard.onboardingStartStep", String(startStep)]
