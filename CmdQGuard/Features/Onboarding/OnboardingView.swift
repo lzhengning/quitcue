@@ -4,6 +4,7 @@ import SwiftUI
 /// (Welcome → Accessibility → App Picker) is implemented in M4.
 struct OnboardingView: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 16) {
@@ -28,6 +29,9 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if OnboardingState.isComplete {
+                if UserDefaults.standard.bool(forKey: "CmdQGuard.showSettingsOnLaunch") {
+                    openSettings()
+                }
                 dismissWindow(id: WindowID.onboarding.rawValue)
             }
         }

@@ -26,6 +26,8 @@ struct CmdQGuardApp: App {
         // the settings window) or Cmd+Comma while any app window is frontmost.
         Settings {
             ControlPanelView()
+                .environment(appDelegate.whitelist)
+                .environment(appDelegate.accessibility)
                 .frame(minWidth: 520, minHeight: 560)
         }
     }
