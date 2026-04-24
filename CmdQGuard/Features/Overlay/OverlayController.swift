@@ -21,6 +21,9 @@ final class OverlayController {
     private var machine: ConfirmStateMachine
     private var timeoutTimer: Timer?
     private var window: OverlayWindow?
+    /// When bound, each new cmdQDown rebuilds the state machine with the
+    /// user's latest persisted confirm-mode + duration settings.
+    weak var settingsSource: ConfirmSettings?
 
     /// Invoked when the user confirms; receives the target bundle ID to quit.
     var onConfirm: ((String?) -> Void)?
@@ -50,6 +53,10 @@ final class OverlayController {
     func handleCmdQDown(bundleID: String?, appName: String?) {
         self.bundleID = bundleID
         self.appName = appName ?? bundleID ?? "this app"
+        if let source = settingsSource {
+            mode = source.mode
+            machine = ConfirmStateMachine(mode: source.mode, config: source.config)
+        }
         machine.cmdQDown(at: Date())
         applyPhase()
     }
@@ -120,8 +127,11 @@ final class OverlayController {
     #if DEBUG
     /// Test hook — forces the overlay visible for a given mode without a
     /// real ⌘Q event. Wired up by the `-CmdQGuard.showOverlayOnLaunch`
-    /// launch flag honored in `AppDelegate`.
+    /// launch flag honored in `AppDelegate`. Writes through to
+    /// `settingsSource` so the cached mode used by `handleCmdQDown`
+    /// reflects the debug choice.
     func debugForceShow(mode: ConfirmMode, appName: String) {
+        settingsSource?.mode = mode
         setMode(mode)
         handleCmdQDown(bundleID: "com.example.debug", appName: appName)
     }

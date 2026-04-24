@@ -15,6 +15,8 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let whitelist = WhitelistStore()
     let accessibility = AccessibilityPermission()
+    let settings = ConfirmSettings()
+    let launchAtLogin = LaunchAtLoginManager()
     let overlay = OverlayController()
     private(set) lazy var interceptor = CmdQInterceptor(store: whitelist)
 
@@ -41,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func wireOverlayPipeline() {
+        overlay.settingsSource = settings
         interceptor.onCmdQDown = { [weak self] bundleID, appName in
             self?.overlay.handleCmdQDown(bundleID: bundleID, appName: appName)
         }

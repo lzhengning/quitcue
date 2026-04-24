@@ -11,6 +11,8 @@ struct CmdQGuardApp: App {
             OnboardingView()
                 .environment(appDelegate.whitelist)
                 .environment(appDelegate.accessibility)
+                .environment(appDelegate.settings)
+                .environment(appDelegate.launchAtLogin)
                 .frame(minWidth: 480, minHeight: 560)
         }
         .windowStyle(.hiddenTitleBar)
@@ -30,7 +32,9 @@ struct CmdQGuardApp: App {
             ControlPanelView()
                 .environment(appDelegate.whitelist)
                 .environment(appDelegate.accessibility)
-                .frame(minWidth: 520, minHeight: 560)
+                .environment(appDelegate.settings)
+                .environment(appDelegate.launchAtLogin)
+                .frame(minWidth: 520, minHeight: 620)
         }
     }
 }
