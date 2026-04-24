@@ -44,7 +44,7 @@ targets:
         CFBundleIdentifier: com.cmdqguard.CmdQGuard
         CFBundlePackageType: APPL
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        LSUIElement: true
+        LSUIElement: false
         NSHumanReadableCopyright: "© 2026 CmdQGuard"
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false

@@ -15,7 +15,7 @@ struct OnboardingWelcomeView: View {
                 .tracking(-0.5)
                 .accessibilityIdentifier("welcomeTitle")
 
-            Text("Stops accidental ⌘Q from closing the apps you care about. Silent. No menubar. No Dock.")
+            Text("Stops accidental ⌘Q from closing the apps you care about. Runs quietly in the background.")
                 .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

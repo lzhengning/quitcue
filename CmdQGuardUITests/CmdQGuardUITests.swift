@@ -1,6 +1,6 @@
 import XCTest
 
-/// M1 smoke coverage: ghost-mode activation policy + first-run onboarding window.
+/// M1 smoke coverage: activation policy + first-run onboarding window.
 final class CmdQGuardUITests: XCTestCase {
     private let bundleID = "com.cmdqguard.CmdQGuard"
 
@@ -8,7 +8,7 @@ final class CmdQGuardUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testGhostModeActivationPolicy() throws {
+    func testAppLaunchesWithRegularActivationPolicy() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-com.cmdqguard.onboarding.completed", "YES"]
         app.launch()
@@ -18,8 +18,8 @@ final class CmdQGuardUITests: XCTestCase {
         let target = try XCTUnwrap(running.first, "CmdQGuard process not found")
         XCTAssertEqual(
             target.activationPolicy,
-            .accessory,
-            "Ghost mode violated — activation policy must stay .accessory (LSUIElement)"
+            .regular,
+            "App must launch with a regular activation policy (Dock icon visible)"
         )
     }
 

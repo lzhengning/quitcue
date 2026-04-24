@@ -13,7 +13,7 @@ struct OnboardingDoneView: View {
                 .font(AppTypography.title2)
                 .accessibilityIdentifier("doneTitle")
 
-            Text("CmdQGuard is now running silently. No menubar, no Dock — it's only visible when you try to quit a protected app.")
+            Text("CmdQGuard is now running in the background. You'll see a floating card only when you try to quit a protected app.")
                 .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -44,9 +44,9 @@ struct OnboardingDoneView: View {
 
     private var tipCard: some View {
         (Text("Tip. ").fontWeight(.semibold)
-         + Text("Reopen settings by launching ")
+         + Text("Reopen the control panel by clicking the ")
          + Text("CmdQGuard").font(.system(.body, design: .monospaced))
-         + Text(" from Spotlight or Launchpad."))
+         + Text(" icon in the Dock."))
             .font(AppTypography.footnote)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.leading)

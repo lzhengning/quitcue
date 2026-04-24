@@ -6,11 +6,11 @@ import SwiftUI
 /// `CmdQInterceptor`, `OverlayController`), and wires the interceptor ↔
 /// overlay ↔ termination pipeline.
 ///
-/// CmdQGuard runs as an `LSUIElement` (no Dock, no persistent menubar). The
-/// onboarding window opens automatically on launch via SwiftUI's default
-/// behavior; the view self-dismisses if onboarding has already been
-/// completed, leaving the app running silently with only the overlay panel
-/// available.
+/// The app runs with a regular activation policy (Dock icon visible). The
+/// onboarding window opens automatically on first run; once onboarding is
+/// complete the window self-dismisses and the app keeps running in the
+/// background so the event tap stays active. The user can reopen the
+/// Control Panel from the Dock icon, Spotlight, or Launchpad.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let whitelist = WhitelistStore()
@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         wireOverlayPipeline()
         startInterceptorIfAuthorized()
+
 
         NotificationCenter.default.addObserver(
             self,
@@ -77,8 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Ghost mode: keep running so the overlay can appear on demand, even
-        // when no UI window is open.
+        // Keep running after the window closes so the CGEventTap can keep
+        // intercepting ⌘Q in the background. The Dock icon stays visible so
+        // the user can Cmd-click → Quit when they really want to stop us.
         false
     }
 
