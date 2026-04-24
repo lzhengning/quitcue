@@ -1,0 +1,110 @@
+name: CmdQGuard
+options:
+  bundleIdPrefix: com.cmdqguard
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "Apple Development"
+    ENABLE_HARDENED_RUNTIME: YES
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      GCC_PREPROCESSOR_DEFINITIONS: DEBUG=1
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+targets:
+  CmdQGuard:
+    type: application
+    platform: macOS
+    sources:
+      - path: CmdQGuard
+        excludes:
+          - "Resources/Info.plist"
+          - "CmdQGuard.entitlements"
+    info:
+      path: CmdQGuard/Resources/Info.plist
+      properties:
+        CFBundleName: CmdQGuard
+        CFBundleDisplayName: CmdQGuard
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIdentifier: com.cmdqguard.CmdQGuard
+        CFBundlePackageType: APPL
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        NSHumanReadableCopyright: "© 2026 CmdQGuard"
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+    entitlements:
+      path: CmdQGuard/CmdQGuard.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: CmdQGuard/CmdQGuard.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuard
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CmdQGuard/Resources/Info.plist
+        ENABLE_PREVIEWS: YES
+        COMBINE_HIDPI_IMAGES: YES
+
+  CmdQGuardTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - CmdQGuardTests
+    dependencies:
+      - target: CmdQGuard
+        link: false
+        copy: false
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuardTests
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CmdQGuard.app/Contents/MacOS/CmdQGuard
+
+  CmdQGuardUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - CmdQGuardUITests
+    dependencies:
+      - target: CmdQGuard
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuardUITests
+        TEST_TARGET_NAME: CmdQGuard
+
+schemes:
+  CmdQGuard:
+    build:
+      targets:
+        CmdQGuard: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CmdQGuardTests
+        - CmdQGuardUITests
+    profile:
+      config: Release
+    archive:
+      config: Release
