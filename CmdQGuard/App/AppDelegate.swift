@@ -87,6 +87,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
             OpenWindowBridge.openSettings()
+            // Suppress AppKit's default reopen (which would re-show the
+            // Welcome `Window` scene). OnboardingView would then dismiss
+            // itself on the next tick because `isComplete == true`, and
+            // the user would perceive the flash as an accidental quit.
+            return false
         }
         return true
     }

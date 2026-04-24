@@ -28,7 +28,7 @@ struct OnboardingView: View {
                     onFinish: { flow.finish(into: whitelist) }
                 )
             case .done:
-                OnboardingDoneView(onDismiss: dismissSelf)
+                OnboardingDoneView(onDismiss: finishAndOpenSettings)
             }
         }
         .onAppear {
@@ -47,5 +47,13 @@ struct OnboardingView: View {
 
     private func dismissSelf() {
         dismissWindow(id: WindowID.onboarding.rawValue)
+    }
+
+    /// Called from the Done step's Close button. Hands the user off to
+    /// the Control Panel so they can see their new protected-apps list
+    /// and tweak the confirm method / duration.
+    private func finishAndOpenSettings() {
+        openSettings()
+        dismissSelf()
     }
 }
