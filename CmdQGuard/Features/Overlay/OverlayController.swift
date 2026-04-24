@@ -97,7 +97,11 @@ final class OverlayController {
     }
 
     private func scheduleTimeout() {
-        timeoutTimer?.invalidate()
+        // Keep the existing timer running — macOS keyboard auto-repeat
+        // causes `applyPhase` to fire every ~33 ms during a hold, and
+        // invalidating + re-scheduling on each tick would reset the timer
+        // forever so it never got to fire. One timer per active session.
+        guard timeoutTimer == nil else { return }
         let delay: TimeInterval
         switch machine.phase {
         case .holding:

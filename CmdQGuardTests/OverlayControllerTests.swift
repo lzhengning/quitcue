@@ -38,6 +38,34 @@ final class OverlayControllerTests: XCTestCase {
         }
     }
 
+    /// Regression: the hold-duration timer must not be invalidated and
+    /// re-scheduled every time macOS delivers an auto-repeat keyDown, or
+    /// the timer never fires and the user can never confirm.
+    func testHoldConfirmsDespiteAutoRepeatKeyDowns() async throws {
+        let settings = ConfirmSettings(defaults: defaults)
+        settings.mode = .hold
+        settings.holdDuration = 0.2
+        let controller = OverlayController()
+        controller.settingsSource = settings
+
+        let expectation = XCTestExpectation(description: "onConfirm fires")
+        nonisolated(unsafe) var confirmedBundleID: String?
+        controller.onConfirm = { bundleID in
+            confirmedBundleID = bundleID
+            expectation.fulfill()
+        }
+
+        // Simulate initial keyDown + auto-repeat deliveries during hold.
+        controller.handleCmdQDown(bundleID: "com.example.hold", appName: "Hold")
+        try await Task.sleep(for: .milliseconds(40))
+        controller.handleCmdQDown(bundleID: "com.example.hold", appName: "Hold")
+        try await Task.sleep(for: .milliseconds(40))
+        controller.handleCmdQDown(bundleID: "com.example.hold", appName: "Hold")
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(confirmedBundleID, "com.example.hold")
+    }
+
     /// Regression: in double-press mode, the second ⌘Q must confirm.
     /// Previously `handleCmdQDown` rebuilt the machine on every call,
     /// always leaving the phase at `.awaitingSecondPress`.
