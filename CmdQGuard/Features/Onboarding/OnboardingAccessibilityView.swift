@@ -1,95 +1,71 @@
 import SwiftUI
 
-/// Step 1 of 2 — ask for Accessibility permission. The toggle triggers
-/// the system prompt via `AccessibilityPermission.requestIfNeeded`; the
-/// Continue button stays disabled until trust is observed.
+/// Step 1 of 2 — ask for Accessibility permission. The pill toggle routes
+/// through `AccessibilityPermission.requestIfNeeded` so tapping triggers
+/// the system TCC prompt. Continue stays disabled until trust lands.
 struct OnboardingAccessibilityView: View {
     let accessibility: AccessibilityPermission
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            stepHeader
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Step 1 of 2")
+                .stepLabelStyle()
+                .padding(.bottom, 6)
 
             Text("Grant Accessibility access")
-                .font(.system(size: 20, weight: .semibold))
+                .font(AppTypography.title2)
+                .tracking(-0.3)
                 .accessibilityIdentifier("accessibilityStepTitle")
+                .padding(.bottom, 6)
 
             Text("Required to intercept ⌘Q before apps see it. Tap the toggle to allow.")
-                .font(.system(size: 13))
+                .font(AppTypography.body)
                 .foregroundStyle(.secondary)
+                .padding(.bottom, 18)
 
-            systemStyleRow
+            SystemSettingsRow {
+                HStack(spacing: 12) {
+                    BrandMark(size: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("CmdQGuard")
+                            .font(AppTypography.bodyMedium)
+                        Text(accessibility.isGranted ? "Allowed" : "Allow to control your Mac")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    PillToggle(
+                        isOn: Binding(
+                            get: { accessibility.isGranted },
+                            set: { if !$0 { /* TCC can't be revoked from here */ } }
+                        ),
+                        onTurnOn: { accessibility.requestIfNeeded() }
+                    )
+                    .accessibilityIdentifier("accessibilityToggle")
+                }
+            }
 
             Spacer(minLength: 0)
 
-            footer
-        }
-        .padding(28)
-        .frame(minWidth: 460, minHeight: 460)
-    }
+            Divider()
+                .padding(.top, 20)
 
-    private var stepHeader: some View {
-        Text("STEP 1 OF 2")
-            .font(.system(size: 11, weight: .regular))
-            .tracking(1)
-            .foregroundStyle(.secondary)
-    }
-
-    private var systemStyleRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 22))
-                .foregroundStyle(.tint)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("CmdQGuard")
-                    .font(.system(size: 13, weight: .medium))
-                Text(accessibility.isGranted ? "Allowed" : "Allow to control your Mac")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+            HStack {
+                Text(accessibility.isGranted ? "✓ Permission granted" : "0 of 1 enabled")
+                    .font(AppTypography.footnote)
+                    .foregroundStyle(accessibility.isGranted ? Color.guardProtected : .secondary)
+                    .accessibilityIdentifier("accessibilityFooterStatus")
+                Spacer()
+                continueButton
+                    .disabled(!accessibility.isGranted)
+                    .accessibilityIdentifier("accessibilityContinueButton")
             }
-
-            Spacer()
-
-            // Binding to a stored toggle wouldn't drive the TCC sheet; route
-            // through the request API so macOS does the right thing.
-            Toggle(
-                "",
-                isOn: Binding(
-                    get: { accessibility.isGranted },
-                    set: { requested in
-                        if requested && !accessibility.isGranted {
-                            accessibility.requestIfNeeded()
-                        }
-                    }
-                )
-            )
-            .labelsHidden()
-            .toggleStyle(.switch)
-            .accessibilityIdentifier("accessibilityToggle")
+            .padding(.top, 14)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-    }
-
-    private var footer: some View {
-        HStack {
-            Text(accessibility.isGranted ? "✓ Permission granted" : "0 of 1 enabled")
-                .font(.system(size: 12))
-                .foregroundStyle(accessibility.isGranted ? .green : .secondary)
-                .accessibilityIdentifier("accessibilityFooterStatus")
-            Spacer()
-            continueButton
-                .disabled(!accessibility.isGranted)
-                .accessibilityIdentifier("accessibilityContinueButton")
-        }
-        .padding(.top, 14)
-        .overlay(Divider(), alignment: .top)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 28)
+        .frame(minWidth: 460, minHeight: 460)
     }
 
     @ViewBuilder

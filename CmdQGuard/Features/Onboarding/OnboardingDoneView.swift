@@ -1,52 +1,62 @@
 import SwiftUI
 
-/// Step 3 — final confirmation. The onboarding window auto-dismisses
-/// after a short pause so the app fades into its ghost-mode state.
+/// Step 3 — final confirmation. Matches the prototype's green
+/// check-in-circle + soft tip card tone.
 struct OnboardingDoneView: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.18))
-                    .frame(width: 56, height: 56)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.green)
-            }
+        VStack(spacing: 18) {
+            successBadge
 
             Text("You're protected.")
-                .font(.system(size: 20, weight: .semibold))
+                .font(AppTypography.title2)
                 .accessibilityIdentifier("doneTitle")
 
             Text("CmdQGuard is now running silently. No menubar, no Dock — it's only visible when you try to quit a protected app.")
-                .font(.system(size: 13))
+                .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+                .lineSpacing(2)
+                .frame(maxWidth: 300)
 
-            VStack(alignment: .leading, spacing: 6) {
-                (Text("Tip. ").fontWeight(.semibold)
-                 + Text("Reopen settings by launching ")
-                 + Text("CmdQGuard").font(.system(.body, design: .monospaced))
-                 + Text(" from Spotlight or Launchpad."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
+            tipCard
 
             closeButton
                 .padding(.top, 4)
                 .accessibilityIdentifier("doneCloseButton")
         }
-        .padding(44)
+        .padding(.horizontal, 44)
+        .padding(.vertical, 44)
         .frame(minWidth: 440, minHeight: 440)
+    }
+
+    private var successBadge: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hue: 155/360, saturation: 0.35, brightness: 0.92))
+                .frame(width: 56, height: 56)
+            Image(systemName: "checkmark")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Color(hue: 155/360, saturation: 0.55, brightness: 0.50))
+        }
+    }
+
+    private var tipCard: some View {
+        (Text("Tip. ").fontWeight(.semibold)
+         + Text("Reopen settings by launching ")
+         + Text("CmdQGuard").font(.system(.body, design: .monospaced))
+         + Text(" from Spotlight or Launchpad."))
+            .font(AppTypography.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .lineSpacing(2)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.systemRowBackground)
+            )
     }
 
     @ViewBuilder

@@ -44,7 +44,11 @@ final class ControlPanelM5UITests: XCTestCase {
     }
 
     func testProtectedAppsEmptyStateByDefault() {
-        let app = launch()
+        // Force empty via launchArg override so the test is robust against
+        // a whitelist persisted from previous manual dogfooding.
+        let app = launch(extraArgs: [
+            "-com.cmdqguard.whitelist.bundleIDs", "()"
+        ])
         let empty = app.staticTexts["protectedAppsEmpty"]
         XCTAssertTrue(empty.waitForExistence(timeout: 5), "expected empty state")
     }

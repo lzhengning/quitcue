@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Step 2 of 2 — the 5-column app picker grid. Each tile is a toggle
-/// button with the app icon + name. M6 will layer recommended categories
-/// on top of this raw `AppInventory` list.
+/// Step 2 of 2 — the 5-column app picker grid. Selected tiles gain an
+/// Aurora-tinted background, accent border, and a checkmark badge on the
+/// icon, matching the prototype's selected-state treatment.
 struct OnboardingAppPickerView: View {
     let flow: OnboardingFlow
     let apps: [InstalledApp]
@@ -11,101 +11,55 @@ struct OnboardingAppPickerView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("STEP 2 OF 2")
-                .font(.system(size: 11))
-                .tracking(1)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Step 2 of 2").stepLabelStyle().padding(.bottom, 6)
 
             Text("Pick what to protect")
-                .font(.system(size: 20, weight: .semibold))
+                .font(AppTypography.title2)
+                .tracking(-0.3)
                 .accessibilityIdentifier("appPickerTitle")
+                .padding(.bottom, 6)
 
-            Text("Tap to toggle.")
-                .font(.system(size: 13))
+            Text("Tap to toggle. Selected apps float to the top.")
+                .font(AppTypography.body)
                 .foregroundStyle(.secondary)
+                .padding(.bottom, 18)
 
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(orderedApps, id: \.bundleID) { app in
-                        tile(for: app)
+                        AppPickerTile(app: app, checked: flow.selectedBundleIDs.contains(app.bundleID)) {
+                            flow.toggle(app.bundleID)
+                        }
                     }
                 }
                 .padding(.vertical, 4)
             }
             .frame(minHeight: 280)
 
-            footer
+            Divider().padding(.top, 20)
+
+            HStack {
+                Text("\(flow.selectedBundleIDs.count) apps protected")
+                    .font(AppTypography.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("appPickerCount")
+                Spacer()
+                Button("Clear") { flow.clearSelection() }
+                    .buttonStyle(.borderless)
+                finishButton.accessibilityIdentifier("finishButton")
+            }
+            .padding(.top, 14)
         }
-        .padding(28)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 28)
         .frame(minWidth: 480, minHeight: 520)
     }
 
-    /// Selected first (alphabetized), then the rest (alphabetized).
     private var orderedApps: [InstalledApp] {
         let selected = apps.filter { flow.selectedBundleIDs.contains($0.bundleID) }
         let others = apps.filter { !flow.selectedBundleIDs.contains($0.bundleID) }
         return selected + others
-    }
-
-    private func tile(for app: InstalledApp) -> some View {
-        let checked = flow.selectedBundleIDs.contains(app.bundleID)
-        return Button {
-            flow.toggle(app.bundleID)
-        } label: {
-            VStack(spacing: 6) {
-                ZStack(alignment: .bottomTrailing) {
-                    AppIconView(app: app, size: 36)
-                    if checked {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 14, height: 14)
-                            .overlay(
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundStyle(.white)
-                            )
-                            .overlay(Circle().stroke(Color(nsColor: .controlBackgroundColor), lineWidth: 1.5))
-                            .offset(x: 4, y: 4)
-                    }
-                }
-                Text(app.name)
-                    .font(.system(size: 10.5, weight: checked ? .semibold : .regular))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: 72)
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(checked ? Color.accentColor.opacity(0.12) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(checked ? Color.accentColor : .clear, lineWidth: 1)
-            )
-            .opacity(checked ? 1 : 0.78)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("appTile_\(app.bundleID)")
-    }
-
-    private var footer: some View {
-        HStack {
-            Text("\(flow.selectedBundleIDs.count) apps protected")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("appPickerCount")
-            Spacer()
-            Button("Clear") { flow.clearSelection() }
-                .buttonStyle(.borderless)
-            finishButton
-                .accessibilityIdentifier("finishButton")
-        }
-        .padding(.top, 14)
-        .overlay(Divider(), alignment: .top)
     }
 
     @ViewBuilder
@@ -116,6 +70,58 @@ struct OnboardingAppPickerView: View {
         } else {
             button.buttonStyle(.borderedProminent)
         }
+    }
+}
+
+private struct AppPickerTile: View {
+    let app: InstalledApp
+    let checked: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            VStack(spacing: 6) {
+                ZStack(alignment: .bottomTrailing) {
+                    AppIconView(app: app, size: 36)
+                    if checked { checkmarkBadge }
+                }
+                Text(app.name)
+                    .font(AppTypography.tileLabel)
+                    .fontWeight(checked ? .semibold : .regular)
+                    .foregroundStyle(checked ? Color.primary : Color.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 72)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(checked ? Color.guardAccentTint : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(checked ? Color.guardAccent : .clear, lineWidth: 1)
+            )
+            .opacity(checked ? 1 : 0.78)
+            .animation(.easeInOut(duration: 0.12), value: checked)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("appTile_\(app.bundleID)")
+    }
+
+    private var checkmarkBadge: some View {
+        Circle()
+            .fill(Color.guardAccent)
+            .frame(width: 14, height: 14)
+            .overlay(
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.white)
+            )
+            .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
+            .offset(x: 4, y: 4)
     }
 }
 

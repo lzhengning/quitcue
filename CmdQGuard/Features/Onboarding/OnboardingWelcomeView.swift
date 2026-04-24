@@ -7,20 +7,20 @@ struct OnboardingWelcomeView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 56, weight: .regular))
-                .foregroundStyle(.tint)
+            BrandMark(size: 72)
+                .padding(.bottom, 4)
 
             Text("Welcome to CmdQGuard")
-                .font(.system(size: 26, weight: .semibold))
+                .font(AppTypography.title1)
+                .tracking(-0.5)
                 .accessibilityIdentifier("welcomeTitle")
 
             Text("Stops accidental ⌘Q from closing the apps you care about. Silent. No menubar. No Dock.")
-                .font(.system(size: 13))
+                .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
                 .frame(maxWidth: 320)
-                .padding(.top, 4)
 
             getStartedButton
                 .padding(.top, 20)
