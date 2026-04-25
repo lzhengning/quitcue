@@ -20,6 +20,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let overlay = OverlayController()
     private(set) lazy var interceptor = CmdQInterceptor(store: whitelist)
 
+    override init() {
+        // Suppress macOS's "unexpectedly quit while reopening windows"
+        // dialog. We don't model documents, the welcome window is
+        // re-derived from `OnboardingState`, and the Settings scene is
+        // always reachable from the Dock — restoration adds nothing and
+        // blocks UI tests behind a modal sheet after any forced kill.
+        UserDefaults.standard.register(defaults: [
+            "NSQuitAlwaysKeepsWindows": false,
+            "ApplePersistenceIgnoreState": true
+        ])
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         wireOverlayPipeline()
         startInterceptorIfAuthorized()

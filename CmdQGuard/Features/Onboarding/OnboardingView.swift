@@ -34,6 +34,12 @@ struct OnboardingView: View {
         .onAppear {
             if OnboardingState.isComplete {
                 if UserDefaults.standard.bool(forKey: "CmdQGuard.showSettingsOnLaunch") {
+                    // Use the SwiftUI action here because the AppKit
+                    // selector (`showSettingsWindow:`) silently fails when
+                    // sent before the responder chain is ready, and
+                    // `onAppear` is exactly that moment. From a button
+                    // action later in the lifecycle the AppKit path is
+                    // safe — that's what `finishAndOpenSettings` uses.
                     openSettings()
                 }
                 dismissSelf()
@@ -52,8 +58,14 @@ struct OnboardingView: View {
     /// Called from the Done step's Close button. Hands the user off to
     /// the Control Panel so they can see their new protected-apps list
     /// and tweak the confirm method / duration.
+    ///
+    /// We route through the AppKit selector (`showSettingsWindow:`) rather
+    /// than `@Environment(\.openSettings)` because the SwiftUI action is
+    /// deprecated in macOS 14+ and emits a runtime warning telling callers
+    /// to use `SettingsLink` instead — which doesn't fit a "open + then
+    /// dismiss the current window" flow.
     private func finishAndOpenSettings() {
-        openSettings()
+        OpenWindowBridge.openSettings()
         dismissSelf()
     }
 }
