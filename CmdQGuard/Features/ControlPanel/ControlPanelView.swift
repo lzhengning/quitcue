@@ -1,8 +1,11 @@
 import SwiftUI
 
 /// Settings surface reopened via Spotlight or Cmd+Comma.
-/// M5 expands the M2 stub into the full per-section layout:
-/// Accessibility · Confirm Method · Protected Apps · General.
+/// Per design canvas: identity header → Protected Apps → Confirm Method →
+/// Hold Duration → General. Accessibility surfaces only as a warning row
+/// when permission isn't granted; the identity header otherwise carries a
+/// quiet "Accessibility on" status line so users still have a single place
+/// to verify the daemon is healthy.
 struct ControlPanelView: View {
     @Environment(WhitelistStore.self) private var whitelist
     @Environment(AccessibilityPermission.self) private var accessibility
@@ -16,33 +19,28 @@ struct ControlPanelView: View {
         @Bindable var settings = settings
 
         Form {
-            accessibilitySection
+            Section { identityHeader }
+                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+
+            if !accessibility.isGranted {
+                accessibilityWarningSection
+            }
+
+            protectedAppsSection
 
             Section("Confirm Method") {
                 Picker("Method", selection: $settings.mode) {
                     Text("Hold ⌘Q").tag(ConfirmMode.hold)
-                    Text("Press twice").tag(ConfirmMode.doublePress)
+                    Text("Press ⌘Q twice").tag(ConfirmMode.doublePress)
                 }
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("confirmModePicker")
-
-                HStack {
-                    Text(settings.mode == .hold ? "Hold duration" : "Window for 2nd press")
-                    Spacer()
-                    Text("\(String(format: "%.1f", currentDuration(settings))) s")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("confirmDurationLabel")
-                }
-                Slider(
-                    value: settings.mode == .hold ? $settings.holdDuration : $settings.doublePressWindow,
-                    in: currentRange(for: settings.mode),
-                    step: 0.1
-                )
-                .accessibilityIdentifier("confirmDurationSlider")
             }
 
-            protectedAppsSection
+            Section(settings.mode == .hold ? "Hold Duration" : "Window for 2nd Press") {
+                durationControl(settings: settings)
+            }
+
             generalSection
         }
         .formStyle(.grouped)
@@ -62,23 +60,102 @@ struct ControlPanelView: View {
         }
     }
 
-    private var accessibilitySection: some View {
-        Section("Accessibility") {
+    private var identityHeader: some View {
+        HStack(spacing: 12) {
+            BrandMark(size: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("CmdQGuard")
+                    .font(.system(size: 15, weight: .semibold))
+                    .tracking(-0.2)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(accessibility.isGranted ? Color.guardProtected : .orange)
+                        .frame(width: 7, height: 7)
+                    Text(accessibility.isGranted
+                         ? guardingSummary
+                         : "Accessibility: Not granted")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("accessibilityStatus")
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var guardingSummary: String {
+        let n = whitelist.bundleIDs.count
+        return "Guarding \(n) \(n == 1 ? "app" : "apps")"
+    }
+
+    private var accessibilityWarningSection: some View {
+        Section {
             HStack {
-                Image(systemName: accessibility.isGranted
-                      ? "checkmark.circle.fill"
-                      : "exclamationmark.triangle.fill")
-                    .foregroundStyle(accessibility.isGranted ? .green : .orange)
-                Text(accessibility.isGranted
-                     ? "Accessibility: Granted"
-                     : "Accessibility: Not granted")
-                    .accessibilityIdentifier("accessibilityStatus")
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text("CmdQGuard can't intercept ⌘Q without Accessibility access.")
+                    .font(.system(size: 12))
                 Spacer()
-                if !accessibility.isGranted {
-                    grantButton
+                grantButton
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func durationControl(settings: ConfirmSettings) -> some View {
+        @Bindable var settings = settings
+        let isHold = settings.mode == .hold
+
+        HStack {
+            Text(activeTickLabel(for: settings))
+                .font(.system(size: 13))
+            Spacer()
+            Text("\(String(format: "%.1f", currentDuration(settings))) s")
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("confirmDurationLabel")
+        }
+        Slider(
+            value: isHold ? $settings.holdDuration : $settings.doublePressWindow,
+            in: currentRange(for: settings.mode),
+            step: 0.1
+        )
+        .accessibilityIdentifier("confirmDurationSlider")
+
+        if isHold {
+            HStack {
+                ForEach(holdTicks, id: \.label) { tick in
+                    let active = abs(settings.holdDuration - tick.at) < 0.25
+                    Text(tick.label)
+                        .font(.system(size: 11, weight: active ? .semibold : .regular))
+                        .foregroundStyle(active ? Color.accentColor : .secondary)
+                        .frame(maxWidth: .infinity, alignment: tick.alignment)
                 }
             }
         }
+    }
+
+    private func activeTickLabel(for settings: ConfirmSettings) -> String {
+        guard settings.mode == .hold else { return "Window" }
+        for tick in holdTicks where abs(settings.holdDuration - tick.at) < 0.25 {
+            return tick.label
+        }
+        return "Custom"
+    }
+
+    private var holdTicks: [HoldTick] {
+        [
+            HoldTick(at: 1.0, label: "Fast", alignment: .leading),
+            HoldTick(at: 1.5, label: "Standard", alignment: .center),
+            HoldTick(at: 2.5, label: "Safe", alignment: .trailing)
+        ]
+    }
+
+    private struct HoldTick {
+        let at: TimeInterval
+        let label: String
+        let alignment: Alignment
     }
 
     private var protectedAppsSection: some View {

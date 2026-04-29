@@ -13,14 +13,10 @@ final class ControlPanelUITests: CmdQGuardUITestCase {
         app.launch()
         addTeardownBlock { app.terminate() }
 
-        let granted = app.staticTexts["Accessibility: Granted"]
-        let notGranted = app.staticTexts["Accessibility: Not granted"]
-        let deadline = Date().addingTimeInterval(5)
-        while Date() < deadline, !granted.exists, !notGranted.exists {
-            Thread.sleep(forTimeInterval: 0.2)
-        }
+        let status = app.descendants(matching: .any)
+            .matching(identifier: "accessibilityStatus").firstMatch
         XCTAssertTrue(
-            granted.exists || notGranted.exists,
+            status.waitForExistence(timeout: 5),
             "Accessibility status row did not appear"
         )
     }
