@@ -18,33 +18,36 @@ struct ControlPanelView: View {
     var body: some View {
         @Bindable var settings = settings
 
-        Form {
-            Section { identityHeader }
-                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+        VStack(spacing: 0) {
+            identityHeader
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 8)
 
-            if !accessibility.isGranted {
-                accessibilityWarningSection
-            }
-
-            protectedAppsSection
-
-            Section("Confirm Method") {
-                Picker("Method", selection: $settings.mode) {
-                    Text("Hold ⌘Q").tag(ConfirmMode.hold)
-                    Text("Press ⌘Q twice").tag(ConfirmMode.doublePress)
+            Form {
+                if !accessibility.isGranted {
+                    accessibilityWarningSection
                 }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("confirmModePicker")
-            }
 
-            Section(settings.mode == .hold ? "Hold Duration" : "Window for 2nd Press") {
-                durationControl(settings: settings)
-            }
+                protectedAppsSection
 
-            generalSection
+                Section("Confirm Method") {
+                    Picker("Method", selection: $settings.mode) {
+                        Text("Hold ⌘Q").tag(ConfirmMode.hold)
+                        Text("Press ⌘Q twice").tag(ConfirmMode.doublePress)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("confirmModePicker")
+                }
+
+                Section(settings.mode == .hold ? "Hold Duration" : "Window for 2nd Press") {
+                    durationControl(settings: settings)
+                }
+
+                generalSection
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
-        .scenePadding()
         .onAppear {
             if installedApps.isEmpty { installedApps = AppInventory.scan() }
         }
