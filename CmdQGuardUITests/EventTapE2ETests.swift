@@ -19,7 +19,7 @@ import XCTest
 /// is skipped so the suite never fails outside the VM lane.
 final class EventTapE2ETests: CmdQGuardUITestCase {
     private static let stagedBundlePath = "/Applications/CmdQGuard.app"
-    private static let keysenderPath = "/usr/local/bin/keysender"
+    private static let keysenderPath = "/Applications/Keysender.app/Contents/MacOS/keysender"
     private static let calculatorBundleID = "com.apple.calculator"
     // Virtual key code for 'Q' on the US ANSI layout (kVK_ANSI_Q = 12).
     private static let kVKQ = "12"
@@ -33,7 +33,7 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         )
         try XCTSkipUnless(
             fm.fileExists(atPath: Self.keysenderPath),
-            "No /usr/local/bin/keysender — stage Keysender in the authorised VM."
+            "No /Applications/Keysender.app — stage Keysender in the authorised VM."
         )
     }
 
