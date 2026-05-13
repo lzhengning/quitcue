@@ -140,14 +140,20 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: Self.keysenderPath)
         proc.arguments = args
+        let errPipe = Pipe()
+        proc.standardError = errPipe
         do { try proc.run() } catch {
             XCTFail("Failed to run keysender: \(error)")
             return
         }
         proc.waitUntilExit()
+        let errMsg = String(
+            data: errPipe.fileHandleForReading.readDataToEndOfFile(),
+            encoding: .utf8
+        ) ?? ""
         XCTAssertEqual(
             proc.terminationStatus, 0,
-            "keysender exited with status \(proc.terminationStatus)"
+            "keysender exited with status \(proc.terminationStatus); stderr: \(errMsg)"
         )
     }
 
