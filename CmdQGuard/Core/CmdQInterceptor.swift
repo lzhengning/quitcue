@@ -45,7 +45,10 @@ final class CmdQInterceptor {
             userInfo: refcon
         )
 
-        guard let newTap else { return false }
+        guard let newTap else {
+            Self.debugLog("tapCreate failed")
+            return false
+        }
 
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, newTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
@@ -53,6 +56,7 @@ final class CmdQInterceptor {
 
         self.tap = newTap
         self.runLoopSource = source
+        Self.debugLog("tapCreate succeeded")
         return true
     }
 
@@ -88,11 +92,13 @@ final class CmdQInterceptor {
                 frontmostBundleID: bundleID,
                 whitelist: me.store.bundleIDs
             ) {
+                debugLog("blocking keyDown keyCode=\(keyCode) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
                 if let handler = me.onCmdQDown {
                     Task { @MainActor in handler(bundleID, appName) }
                 }
                 return nil
             }
+            debugLog("passing keyDown keyCode=\(keyCode) flags=\(flags.rawValue) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
 
         case .keyUp:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
@@ -110,5 +116,37 @@ final class CmdQInterceptor {
         }
 
         return Unmanaged.passUnretained(event)
+    }
+}
+
+private extension CmdQInterceptor {
+    static func debugLog(_ message: String) {
+        EventTapDiagnostics.log(message)
+    }
+}
+
+enum EventTapDiagnostics {
+    static func log(_ message: String) {
+        #if DEBUG
+        guard UserDefaults.standard.bool(forKey: "CmdQGuard.eventTapDiagnostics") else {
+            return
+        }
+
+        NSLog("CMDQ_TAP_DIAG %@", message)
+        let line = "CMDQ_TAP_DIAG \(message)\n"
+        let url = URL(fileURLWithPath: "/tmp/cmdqguard-eventtap-diag.log")
+        guard let data = line.data(using: .utf8) else { return }
+
+        if !FileManager.default.fileExists(atPath: url.path) {
+            _ = FileManager.default.createFile(atPath: url.path, contents: nil)
+        }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer {
+                try? handle.close()
+            }
+            handle.seekToEndOfFile()
+            handle.write(data)
+        }
+        #endif
     }
 }

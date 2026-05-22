@@ -73,8 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startInterceptorIfAuthorized() {
-        guard accessibility.isGranted else { return }
-        interceptor.start()
+        guard accessibility.isGranted else {
+            EventTapDiagnostics.log("accessibility not granted")
+            return
+        }
+        EventTapDiagnostics.log("accessibility granted; starting interceptor")
+        let didStart = interceptor.start()
+        EventTapDiagnostics.log("interceptor start returned \(didStart)")
     }
 
     #if DEBUG

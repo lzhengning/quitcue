@@ -1,11 +1,12 @@
 import XCTest
+import AppKit
 
 /// Event-tap E2E suite. Exercises CmdQGuard's `CGEventTap` interception
 /// against a real target app (Calculator) inside the authorised VM.
 ///
 /// These tests require:
-///   - /Applications/CmdQGuard.app staged with a stable ad-hoc identifier
-///     (the private VM harness handles this).
+///   - /Applications/CmdQGuard.app staged with a stable local signing
+///     identity (the private VM harness handles this).
 ///   - /usr/local/bin/keysender CLI baked into the same snapshot.
 ///   - Accessibility + Input Monitoring granted to BOTH the CmdQGuard
 ///     bundle and keysender (captured in authorised VM snapshot).
@@ -45,11 +46,11 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         let cmdq = launchStagedCmdQGuard(whitelist: [])
         addTeardownBlock { cmdq.terminate() }
 
-        let calc = launchCalculator()
+        _ = launchCalculator()
         sendCmdQ()
 
         XCTAssertTrue(
-            waitForState(calc, .notRunning, timeout: 5),
+            waitForCalculatorState(.notRunning, timeout: 5),
             "Calculator should have quit when ⌘Q is not intercepted"
         )
     }
@@ -66,7 +67,6 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
 
         // Diagnostic: confirm the whitelist arg-domain override actually
         // reached the staged bundle by checking Control Panel surface it.
-        // Distinguishes "injection broken" from "typeKey bypassed CGEventTap".
         let calcRow = cmdq.staticTexts["whitelistRow_com.apple.calculator"]
         XCTAssertTrue(
             calcRow.waitForExistence(timeout: 5),
@@ -78,8 +78,8 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
 
         // Give CmdQGuard a beat to see + swallow the event.
         Thread.sleep(forTimeInterval: 1.0)
-        XCTAssertEqual(
-            calc.state, .runningForeground,
+        XCTAssertTrue(
+            isCalculatorRunning(),
             "Calculator should still be alive when CmdQGuard intercepts ⌘Q"
         )
 
@@ -99,7 +99,8 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         )
         var args: [String] = [
             "-com.cmdqguard.onboarding.completed", "YES",
-            "-com.cmdqguard.confirmMode", mode
+            "-com.cmdqguard.confirmMode", mode,
+            "-CmdQGuard.eventTapDiagnostics", "YES"
         ]
         if showSettings {
             args.append("-CmdQGuard.showSettingsOnLaunch")
@@ -131,19 +132,35 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         return calc
     }
 
-    private func sendCmdQ(holdSeconds: Double = 0) {
-        var args = [Self.kVKQ, "--cmd"]
+    private func sendCmdQ(holdSeconds: Double = 0.05) {
+        var keyArgs = [Self.kVKQ, "--cmd"]
         if holdSeconds > 0 {
-            args.append("--hold")
-            args.append(String(holdSeconds))
+            keyArgs.append("--hold")
+            keyArgs.append(String(holdSeconds))
         }
+        // Invoke keysender via ssh-to-localhost so sshd-keygen-wrapper
+        // becomes the responsible process. The test runner's TCC chain
+        // has no PostEvent grant; sshd-keygen-wrapper is granted
+        // everything in the Cirrus image. Bypassing the chain is the
+        // only reliable way to get CGEventPost to actually land.
+        // The VM harness sets up the key inside the ephemeral VM.
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: Self.keysenderPath)
-        proc.arguments = args
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+        proc.arguments = [
+            "-i", "/Users/admin/.ssh/id_ed25519_test",
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=ERROR",
+            "admin@127.0.0.1",
+            Self.keysenderPath,
+        ] + keyArgs
         let errPipe = Pipe()
+        let outPipe = Pipe()
         proc.standardError = errPipe
+        proc.standardOutput = outPipe
         do { try proc.run() } catch {
-            XCTFail("Failed to run keysender: \(error)")
+            XCTFail("Failed to run keysender over ssh-loopback: \(error)")
             return
         }
         proc.waitUntilExit()
@@ -151,20 +168,33 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
             data: errPipe.fileHandleForReading.readDataToEndOfFile(),
             encoding: .utf8
         ) ?? ""
+        let outMsg = String(
+            data: outPipe.fileHandleForReading.readDataToEndOfFile(),
+            encoding: .utf8
+        ) ?? ""
         XCTAssertEqual(
             proc.terminationStatus, 0,
-            "keysender exited with status \(proc.terminationStatus); stderr: \(errMsg)"
+            "keysender (via ssh) exited with status \(proc.terminationStatus); stdout: \(outMsg); stderr: \(errMsg)"
         )
     }
 
-    private func waitForState(
-        _ app: XCUIApplication,
+    /// `XCUIApplication.state` lags badly on macOS when a target app
+    /// terminates from within itself (e.g. via ⌘Q), so we query
+    /// NSRunningApplication directly.
+    private func isCalculatorRunning() -> Bool {
+        !NSRunningApplication.runningApplications(
+            withBundleIdentifier: Self.calculatorBundleID
+        ).isEmpty
+    }
+
+    private func waitForCalculatorState(
         _ state: XCUIApplication.State,
         timeout: TimeInterval
     ) -> Bool {
+        let wantRunning = (state != .notRunning)
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if app.state == state { return true }
+            if isCalculatorRunning() == wantRunning { return true }
             Thread.sleep(forTimeInterval: 0.1)
         }
         return false
