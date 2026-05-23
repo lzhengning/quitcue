@@ -66,13 +66,11 @@ final class ControlPanelM5UITests: CmdQGuardUITestCase {
 
     func testAddProtectedAppButtonOpensSheet() {
         let app = launch()
-        let addButton = app.descendants(matching: .any)
-            .matching(identifier: "addProtectedAppButton").firstMatch
+        let addButton = app.buttons["addProtectedAppButton"]
         XCTAssertTrue(addButton.waitForExistence(timeout: 5), "Add button missing")
         addButton.click()
 
-        let search = app.descendants(matching: .any)
-            .matching(identifier: "addProtectedAppSearch").firstMatch
+        let search = app.textFields["addProtectedAppSearch"]
         XCTAssertTrue(search.waitForExistence(timeout: 5), "Add sheet did not open")
     }
 }

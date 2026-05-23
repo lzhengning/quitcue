@@ -35,4 +35,35 @@ final class CmdQGuardUITests: CmdQGuardUITestCase {
             "Onboarding window did not appear when onboarding was not yet complete"
         )
     }
+
+    func testReopenAfterOnboardingCompleteShowsControlPanel() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+"-com.cmdqguard.onboarding.completed", "YES"
+        ]
+        app.launch()
+        addTeardownBlock { app.terminate() }
+
+        let addButton = app.buttons["addProtectedAppButton"]
+        XCTAssertFalse(
+            addButton.waitForExistence(timeout: 1),
+            "Control Panel should not open automatically for a normal background launch"
+        )
+
+        try reopenCmdQGuardViaLaunchServices()
+
+        XCTAssertTrue(
+            addButton.waitForExistence(timeout: 5),
+            "Clicking the Dock icon after onboarding should reopen the Control Panel"
+        )
+    }
+
+    private func reopenCmdQGuardViaLaunchServices() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-b", bundleID]
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+    }
 }

@@ -61,12 +61,15 @@ struct OnboardingDoneView: View {
 
     @ViewBuilder
     private var closeButton: some View {
-        let button = Button("Close") { onDismiss() }
-        if #available(macOS 26, *) {
-            button.buttonStyle(.glassProminent)
-        } else {
-            button.buttonStyle(.borderedProminent)
+        Button(action: onDismiss) {
+            Text("Close")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .frame(height: 30)
+                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 }
 

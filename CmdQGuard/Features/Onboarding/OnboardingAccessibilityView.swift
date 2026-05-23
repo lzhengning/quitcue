@@ -70,12 +70,15 @@ struct OnboardingAccessibilityView: View {
 
     @ViewBuilder
     private var continueButton: some View {
-        let button = Button("Continue →") { onContinue() }
-        if #available(macOS 26, *) {
-            button.buttonStyle(.glassProminent)
-        } else {
-            button.buttonStyle(.borderedProminent)
+        Button(action: onContinue) {
+            Text("Continue →")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .frame(height: 30)
+                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 }
 

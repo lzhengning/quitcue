@@ -1,13 +1,13 @@
 import SwiftUI
 
 extension Color {
-    /// The protective accent — Aurora purple (prototype hue 272–278°).
+    /// The protective accent from the prototype's `oklch(0.62 0.14 272)`.
     /// Drives prominence, selection tints, and halo glow.
-    static let guardAccent = Color(hue: 276/360, saturation: 0.74, brightness: 0.56)
+    static let guardAccent = Color(red: 105/255, green: 126/255, blue: 218/255)
 
     /// Light-tint variant for selected backgrounds (app picker, row hover).
-    /// Mimics the prototype's `oklch(0.96 0.04 272)` subtle tint.
-    static let guardAccentTint = Color(hue: 272/360, saturation: 0.18, brightness: 0.96)
+    /// Mimics the prototype's soft selected tile tint.
+    static let guardAccentTint = Color(red: 232/255, green: 236/255, blue: 255/255)
 
     /// The quit / destructive signifier.
     static let guardDanger = Color("DangerColor")

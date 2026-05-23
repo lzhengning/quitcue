@@ -8,7 +8,7 @@ struct OnboardingAppPickerView: View {
     let apps: [InstalledApp]
     let onFinish: () -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -20,7 +20,7 @@ struct OnboardingAppPickerView: View {
                 .accessibilityIdentifier("appPickerTitle")
                 .padding(.bottom, 6)
 
-            Text("Tap to toggle. Selected apps float to the top.")
+            Text("Tap to toggle. Recommended apps are pre-selected.")
                 .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 18)
@@ -35,7 +35,7 @@ struct OnboardingAppPickerView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .frame(minHeight: 280)
+            .frame(minHeight: 240)
 
             Divider().padding(.top, 20)
 
@@ -52,8 +52,9 @@ struct OnboardingAppPickerView: View {
             .padding(.top, 14)
         }
         .padding(.horizontal, 32)
-        .padding(.vertical, 28)
-        .frame(minWidth: 480, minHeight: 520)
+        .padding(.top, 28)
+        .padding(.bottom, 26)
+        .frame(minWidth: 460, minHeight: 458)
     }
 
     private var orderedApps: [InstalledApp] {
@@ -64,12 +65,15 @@ struct OnboardingAppPickerView: View {
 
     @ViewBuilder
     private var finishButton: some View {
-        let button = Button("Finish →") { onFinish() }
-        if #available(macOS 26, *) {
-            button.buttonStyle(.glassProminent)
-        } else {
-            button.buttonStyle(.borderedProminent)
+        Button(action: onFinish) {
+            Text("Finish →")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 18)
+                .frame(height: 30)
+                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 }
 

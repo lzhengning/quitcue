@@ -40,9 +40,9 @@ struct BrandMark: View {
     private var backgroundGradient: LinearGradient {
         LinearGradient(
             stops: [
-                .init(color: Color(hue: 275/360, saturation: 0.30, brightness: 0.78), location: 0.0),
-                .init(color: Color(hue: 278/360, saturation: 0.60, brightness: 0.55), location: 0.55),
-                .init(color: Color(hue: 280/360, saturation: 0.55, brightness: 0.38), location: 1.0)
+                .init(color: Color(red: 147/255, green: 163/255, blue: 252/255), location: 0.0),
+                .init(color: Color(red: 102/255, green: 106/255, blue: 220/255), location: 0.55),
+                .init(color: Color(red: 60/255, green: 52/255, blue: 154/255), location: 1.0)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -51,7 +51,7 @@ struct BrandMark: View {
 
     private var bottomBloom: some View {
         Circle()
-            .fill(Color(hue: 300/360, saturation: 0.60, brightness: 0.80).opacity(0.35))
+            .fill(Color(red: 189/255, green: 150/255, blue: 254/255).opacity(0.35))
             .frame(width: 52, height: 52)
             .offset(x: 20, y: 22)
             .blur(radius: 0)
@@ -88,7 +88,7 @@ struct BrandMark: View {
 
         // Small command-key accent dot.
         Circle()
-            .fill(Color(hue: 275/360, saturation: 0.18, brightness: 0.96))
+            .fill(Color(red: 228/255, green: 237/255, blue: 255/255))
             .frame(width: 3.6, height: 3.6)
             .offset(x: 17, y: 17)
     }

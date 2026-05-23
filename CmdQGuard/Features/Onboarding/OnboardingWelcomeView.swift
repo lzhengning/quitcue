@@ -15,7 +15,11 @@ struct OnboardingWelcomeView: View {
                 .tracking(-0.5)
                 .accessibilityIdentifier("welcomeTitle")
 
-            Text("Stops accidental ⌘Q from closing the apps you care about. Runs quietly in the background.")
+            (Text("Stops accidental ")
+             + Text("⌘").font(.system(.caption, design: .monospaced)).fontWeight(.semibold)
+             + Text(" ")
+             + Text("Q").font(.system(.caption, design: .monospaced)).fontWeight(.semibold)
+             + Text(" from closing the apps you care about. Silent. No menubar. No Dock."))
                 .font(AppTypography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -26,18 +30,23 @@ struct OnboardingWelcomeView: View {
                 .padding(.top, 20)
                 .accessibilityIdentifier("getStartedButton")
         }
-        .padding(48)
+        .padding(.horizontal, 48)
+        .padding(.top, 48)
+        .padding(.bottom, 36)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private var getStartedButton: some View {
-        let button = Button("Get started") { onNext() }
-        if #available(macOS 26, *) {
-            button.buttonStyle(.glassProminent).controlSize(.large)
-        } else {
-            button.buttonStyle(.borderedProminent).controlSize(.large)
+        Button(action: onNext) {
+            Text("Get started")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+                .frame(height: 34)
+                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 }
 

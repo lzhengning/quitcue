@@ -13,7 +13,8 @@ struct CmdQGuardApp: App {
                 .environment(appDelegate.accessibility)
                 .environment(appDelegate.settings)
                 .environment(appDelegate.launchAtLogin)
-                .frame(minWidth: 480, minHeight: 560)
+                .frame(width: 460, height: 540)
+                .preferredColorScheme(.light)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
@@ -34,8 +35,11 @@ struct CmdQGuardApp: App {
                 .environment(appDelegate.accessibility)
                 .environment(appDelegate.settings)
                 .environment(appDelegate.launchAtLogin)
-                .frame(minWidth: 520, minHeight: 620)
+                .frame(width: 520)
+                .frame(minHeight: 620)
+                .preferredColorScheme(.light)
         }
+        .windowResizability(.contentSize)
     }
 }
 

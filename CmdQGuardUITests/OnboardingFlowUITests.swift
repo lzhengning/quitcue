@@ -47,4 +47,15 @@ final class OnboardingFlowUITests: CmdQGuardUITestCase {
         XCTAssertTrue(count.exists, "apps-protected count missing")
         XCTAssertTrue(app.buttons["finishButton"].exists, "finish button missing")
     }
+
+    func testAppPickerShowsSafariWhenInstalled() throws {
+        guard FileManager.default.fileExists(atPath: "/Applications/Safari.app") else {
+            throw XCTSkip("Safari is not installed in /Applications")
+        }
+
+        let app = launch(onboardingComplete: false, startStep: 2)
+        let safariTile = app.buttons["appTile_com.apple.Safari"]
+
+        XCTAssertTrue(safariTile.waitForExistence(timeout: 5), "Safari should be visible in the app picker")
+    }
 }

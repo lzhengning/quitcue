@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let launchAtLogin = LaunchAtLoginManager()
     let overlay = OverlayController()
     private(set) lazy var interceptor = CmdQInterceptor(store: whitelist)
+    private var controlPanelWindow: NSWindow?
 
     override init() {
         // Suppress macOS's "unexpectedly quit while reopening windows"
@@ -103,6 +104,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         interceptor.stop()
     }
 
+    func showControlPanel() {
+        accessibility.refresh()
+        whitelist.reload()
+        startInterceptorIfAuthorized()
+
+        if let controlPanelWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            controlPanelWindow.makeKeyAndOrderFront(nil)
+            controlPanelWindow.orderFrontRegardless()
+            return
+        }
+
+        let content = ControlPanelView()
+            .environment(whitelist)
+            .environment(accessibility)
+            .environment(settings)
+            .environment(launchAtLogin)
+            .frame(width: 520)
+            .frame(minHeight: 620)
+            .preferredColorScheme(.light)
+
+        let window = NSWindow(contentViewController: NSHostingController(rootView: content))
+        window.title = "CmdQGuard"
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.setContentSize(NSSize(width: 520, height: 620))
+        window.isReleasedWhenClosed = false
+        window.center()
+
+        controlPanelWindow = window
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Keep running after the window closes so the CGEventTap can keep
         // intercepting ⌘Q in the background. The Dock icon stays visible so
@@ -111,14 +146,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            OpenWindowBridge.openSettings()
-            // Suppress AppKit's default reopen (which would re-show the
-            // Welcome `Window` scene). OnboardingView would then dismiss
-            // itself on the next tick because `isComplete == true`, and
-            // the user would perceive the flash as an accidental quit.
-            return false
-        }
-        return true
+        showControlPanel()
+        // Suppress AppKit's default reopen path. SwiftUI may still have a
+        // closed Welcome scene in its window graph after onboarding, so
+        // `hasVisibleWindows` is not a reliable proxy for whether the user
+        // can actually see the Control Panel.
+        return false
     }
 }
