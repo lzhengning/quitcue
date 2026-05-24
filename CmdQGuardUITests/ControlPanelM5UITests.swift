@@ -73,4 +73,29 @@ final class ControlPanelM5UITests: CmdQGuardUITestCase {
         let search = app.textFields["addProtectedAppSearch"]
         XCTAssertTrue(search.waitForExistence(timeout: 5), "Add sheet did not open")
     }
+
+    func testAddProtectedAppSheetShowsAvailableApps() throws {
+        let safariLocations = [
+            "/Applications/Safari.app",
+            "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app"
+        ]
+        guard safariLocations.contains(where: { FileManager.default.fileExists(atPath: $0) }) else {
+            throw XCTSkip("Safari is not installed in a known system location")
+        }
+
+        let app = launch(extraArgs: [
+            "-com.cmdqguard.whitelist.bundleIDs", "()"
+        ])
+        let addButton = app.buttons["addProtectedAppButton"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 5), "Add button missing")
+        addButton.click()
+
+        let firstCandidate = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "addCandidate_"))
+            .firstMatch
+        XCTAssertTrue(
+            firstCandidate.waitForExistence(timeout: 5),
+            "Add protected app sheet should show available apps"
+        )
+    }
 }

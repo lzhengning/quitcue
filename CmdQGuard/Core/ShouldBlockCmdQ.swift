@@ -29,3 +29,52 @@ func shouldBlockCmdQ(
     guard let bundleID = frontmostBundleID, !bundleID.isEmpty else { return false }
     return whitelist.contains(bundleID)
 }
+
+enum CmdQKeyDownDecision: Equatable {
+    case pass
+    case startBlockedSequence
+    case suppressRepeat
+}
+
+struct CmdQInterceptionState {
+    private var isSuppressingCmdQSequence = false
+
+    mutating func keyDownDecision(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        frontmostBundleID: String?,
+        whitelist: [String]
+    ) -> CmdQKeyDownDecision {
+        guard keyCode == kVK_ANSI_Q, flags.contains(.maskCommand) else {
+            return .pass
+        }
+
+        if isSuppressingCmdQSequence {
+            return .suppressRepeat
+        }
+
+        if shouldBlockCmdQ(
+            keyCode: keyCode,
+            flags: flags,
+            frontmostBundleID: frontmostBundleID,
+            whitelist: whitelist
+        ) {
+            isSuppressingCmdQSequence = true
+            return .startBlockedSequence
+        }
+
+        return .pass
+    }
+
+    mutating func keyUpShouldNotify(keyCode: CGKeyCode) -> Bool {
+        guard keyCode == kVK_ANSI_Q else { return false }
+        isSuppressingCmdQSequence = false
+        return true
+    }
+
+    mutating func flagsChangedShouldNotify(flags: CGEventFlags) -> Bool {
+        guard !flags.contains(.maskCommand) else { return false }
+        isSuppressingCmdQSequence = false
+        return true
+    }
+}

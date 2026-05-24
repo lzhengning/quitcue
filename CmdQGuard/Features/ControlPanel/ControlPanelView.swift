@@ -12,8 +12,8 @@ struct ControlPanelView: View {
     @Environment(ConfirmSettings.self) private var settings
     @Environment(LaunchAtLoginManager.self) private var launchAtLogin
 
-    @State private var showingAppPicker = false
     @State private var installedApps: [InstalledApp] = []
+    @State private var appPickerPresentation: AppPickerPresentation?
 
     var body: some View {
         @Bindable var settings = settings
@@ -53,16 +53,16 @@ struct ControlPanelView: View {
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .accessibilityIdentifier("accessibilityStatus")
         .onAppear {
-            if installedApps.isEmpty { installedApps = AppInventory.scan() }
+            loadInstalledAppsIfNeeded()
         }
-        .sheet(isPresented: $showingAppPicker) {
+        .sheet(item: $appPickerPresentation) { presentation in
             AddProtectedAppSheet(
-                candidates: installedApps.filter { !whitelist.contains($0.bundleID) },
+                candidates: presentation.candidates,
                 onAdd: { bundleID in
                     whitelist.add(bundleID)
-                    showingAppPicker = false
+                    appPickerPresentation = nil
                 },
-                onCancel: { showingAppPicker = false }
+                onCancel: { appPickerPresentation = nil }
             )
         }
     }
@@ -247,7 +247,7 @@ struct ControlPanelView: View {
             nativeSeparator
 
             Button {
-                showingAppPicker = true
+                presentAppPicker()
             } label: {
                 NativeRow(dense: true) {
                     IconBubble(systemName: "plus")
@@ -327,6 +327,24 @@ struct ControlPanelView: View {
     private func currentRange(for mode: ConfirmMode) -> ClosedRange<TimeInterval> {
         mode == .hold ? ConfirmSettings.holdDurationRange : ConfirmSettings.doublePressWindowRange
     }
+
+    @discardableResult
+    private func loadInstalledAppsIfNeeded() -> [InstalledApp] {
+        guard installedApps.isEmpty else { return installedApps }
+        installedApps = AppInventory.scan()
+        return installedApps
+    }
+
+    private func presentAppPicker() {
+        let apps = loadInstalledAppsIfNeeded()
+        let candidates = apps.filter { !whitelist.contains($0.bundleID) }
+        appPickerPresentation = AppPickerPresentation(candidates: candidates)
+    }
+
+    private struct AppPickerPresentation: Identifiable {
+        let id = UUID()
+        let candidates: [InstalledApp]
+    }
 }
 
 private struct ProtectedAppRow: View {
@@ -393,23 +411,41 @@ private struct AddProtectedAppSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("addProtectedAppSearch")
 
-            List(filtered, id: \.bundleID) { app in
-                Button {
-                    onAdd(app.bundleID)
-                } label: {
-                    HStack(spacing: 10) {
-                        AppIconView(app: app, size: 28)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(app.name).font(.system(size: 13, weight: .medium))
-                            Text(app.bundleID).font(.caption.monospaced()).foregroundStyle(.secondary)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if filtered.isEmpty {
+                        Text("No apps found.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                    } else {
+                        ForEach(filtered, id: \.bundleID) { app in
+                            Button {
+                                onAdd(app.bundleID)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    AppIconView(app: app, size: 28)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(app.name).font(.system(size: 13, weight: .medium))
+                                        Text(app.bundleID).font(.caption.monospaced()).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 7)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("addCandidate_\(app.bundleID)")
+
+                            Divider()
                         }
-                        Spacer()
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("addCandidate_\(app.bundleID)")
             }
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(20)
         .frame(minWidth: 460, minHeight: 440)

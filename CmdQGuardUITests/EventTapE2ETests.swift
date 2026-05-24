@@ -87,11 +87,39 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
         calc.terminate()
     }
 
+    /// Regression: after a hold confirmation, the original physical Cmd+Q
+    /// sequence may keep auto-repeating while focus changes. CmdQGuard must
+    /// keep swallowing that sequence until key-up so only the protected target
+    /// quits.
+    func testHoldConfirmQuitsTargetButKeepsCmdQGuardRunning() throws {
+        let cmdq = launchStagedCmdQGuard(
+            whitelist: [Self.calculatorBundleID],
+            mode: "hold",
+            holdDuration: 0.2
+        )
+        addTeardownBlock { cmdq.terminate() }
+
+        _ = launchCalculator()
+        sendCmdQ(holdSeconds: 0.5)
+
+        XCTAssertTrue(
+            waitForCalculatorState(.notRunning, timeout: 5),
+            "Calculator should quit after the hold confirmation"
+        )
+        XCTAssertFalse(
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: "com.cmdqguard.CmdQGuard"
+            ).isEmpty,
+            "CmdQGuard must keep running after confirming a protected app quit"
+        )
+    }
+
     // MARK: - Helpers
 
     private func launchStagedCmdQGuard(
         whitelist: [String],
         mode: String = "hold",
+        holdDuration: Double? = nil,
         showSettings: Bool = false
     ) -> XCUIApplication {
         let app = XCUIApplication(
@@ -102,6 +130,10 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
             "-com.cmdqguard.confirmMode", mode,
             "-CmdQGuard.eventTapDiagnostics", "YES"
         ]
+        if let holdDuration {
+            args.append("-com.cmdqguard.holdDuration")
+            args.append(String(holdDuration))
+        }
         if showSettings {
             args.append("-CmdQGuard.showSettingsOnLaunch")
             args.append("YES")

@@ -20,6 +20,25 @@ open CmdQGuard.xcodeproj
 
 The generated `.xcodeproj` is git-ignored; `project.yml` is the source of truth.
 
+## Package a release DMG
+
+```bash
+scripts/package-release-dmg.sh
+```
+
+The script builds the `CmdQGuard` scheme with the `Release` configuration and
+writes `dist/CmdQGuard-<version>+<build>.dmg`.
+
+For a Developer ID release, pass the signing identity and optional notarytool
+keychain profile:
+
+```bash
+scripts/package-release-dmg.sh \
+  --signing-identity "Developer ID Application: Example, Inc. (TEAMID)" \
+  --development-team TEAMID \
+  --notary-profile CmdQGuardNotary
+```
+
 ## Roadmap
 
 - **M1** Skeleton: XcodeGen, Ghost mode (`LSUIElement`), Settings scene, design tokens, Liquid Glass modifier with fallback ← *you are here*

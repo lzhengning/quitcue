@@ -76,4 +76,72 @@ final class ShouldBlockCmdQTests: XCTestCase {
             whitelist: []
         ))
     }
+
+    func testSuppressesHeldCmdQRepeatsAfterInitialBlockEvenIfFrontmostChanges() {
+        var state = CmdQInterceptionState()
+
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.apple.Safari",
+                whitelist: whitelist
+            ),
+            .startBlockedSequence
+        )
+
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.cmdqguard.CmdQGuard",
+                whitelist: whitelist
+            ),
+            .suppressRepeat
+        )
+    }
+
+    func testSuppressingHeldCmdQResetsOnQKeyUp() {
+        var state = CmdQInterceptionState()
+
+        _ = state.keyDownDecision(
+            keyCode: kVK_ANSI_Q,
+            flags: .maskCommand,
+            frontmostBundleID: "com.apple.Safari",
+            whitelist: whitelist
+        )
+        XCTAssertTrue(state.keyUpShouldNotify(keyCode: kVK_ANSI_Q))
+
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.cmdqguard.CmdQGuard",
+                whitelist: whitelist
+            ),
+            .pass
+        )
+    }
+
+    func testSuppressingHeldCmdQResetsOnCommandRelease() {
+        var state = CmdQInterceptionState()
+
+        _ = state.keyDownDecision(
+            keyCode: kVK_ANSI_Q,
+            flags: .maskCommand,
+            frontmostBundleID: "com.apple.Safari",
+            whitelist: whitelist
+        )
+        XCTAssertTrue(state.flagsChangedShouldNotify(flags: []))
+
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.cmdqguard.CmdQGuard",
+                whitelist: whitelist
+            ),
+            .pass
+        )
+    }
 }

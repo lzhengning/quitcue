@@ -18,6 +18,7 @@ final class CmdQInterceptor {
     private let store: WhitelistStore
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var interceptionState = CmdQInterceptionState()
 
     /// Dispatched on the main actor.
     var onCmdQDown: (@MainActor @Sendable (_ bundleID: String?, _ appName: String?) -> Void)?
@@ -86,28 +87,33 @@ final class CmdQInterceptor {
             let bundleID = front?.bundleIdentifier
             let appName = front?.localizedName
 
-            if shouldBlockCmdQ(
+            switch me.interceptionState.keyDownDecision(
                 keyCode: keyCode,
                 flags: flags,
                 frontmostBundleID: bundleID,
                 whitelist: me.store.bundleIDs
             ) {
+            case .startBlockedSequence:
                 debugLog("blocking keyDown keyCode=\(keyCode) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
                 if let handler = me.onCmdQDown {
                     Task { @MainActor in handler(bundleID, appName) }
                 }
                 return nil
+            case .suppressRepeat:
+                debugLog("suppressing held keyDown keyCode=\(keyCode) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
+                return nil
+            case .pass:
+                debugLog("passing keyDown keyCode=\(keyCode) flags=\(flags.rawValue) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
             }
-            debugLog("passing keyDown keyCode=\(keyCode) flags=\(flags.rawValue) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
 
         case .keyUp:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            if keyCode == kVK_ANSI_Q, let handler = me.onCmdQUp {
+            if me.interceptionState.keyUpShouldNotify(keyCode: keyCode), let handler = me.onCmdQUp {
                 Task { @MainActor in handler() }
             }
 
         case .flagsChanged:
-            if !event.flags.contains(.maskCommand), let handler = me.onCmdQUp {
+            if me.interceptionState.flagsChangedShouldNotify(flags: event.flags), let handler = me.onCmdQUp {
                 Task { @MainActor in handler() }
             }
 
