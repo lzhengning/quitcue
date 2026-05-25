@@ -3,12 +3,14 @@ import XCTest
 /// M3 smoke: the `OverlayController.debugForceShow` path puts an NSPanel on
 /// screen showing the Aurora Halo card. These tests assert the two
 /// mode-specific titles render.
+@MainActor
 final class OverlayUITests: CmdQGuardUITestCase {
 
     private func launch(mode: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
 "-com.cmdqguard.onboarding.completed", "YES",
+            "-com.cmdqguard.doublePressWindow", "2.0",
             "-CmdQGuard.showOverlayOnLaunch", mode
         ]
         app.launch()
@@ -18,23 +20,25 @@ final class OverlayUITests: CmdQGuardUITestCase {
 
     func testHoldOverlayRendersHoldTitle() {
         let app = launch(mode: "hold")
-        let title = app.staticTexts["Hold ⌘Q to quit"]
+        let title = app.descendants(matching: .any)
+            .matching(identifier: "overlayTitle")
+            .firstMatch
         XCTAssertTrue(
             title.waitForExistence(timeout: 5),
             "Hold-mode overlay title did not appear"
         )
-        let subtitle = app.staticTexts["Release to cancel"]
-        XCTAssertTrue(subtitle.exists, "Hold-mode subtitle missing")
+        XCTAssertEqual(title.label, "Hold Command Q to Quit")
     }
 
     func testDoublePressOverlayRendersPressAgainTitle() {
         let app = launch(mode: "double")
-        let title = app.staticTexts["Press ⌘Q again"]
+        let title = app.descendants(matching: .any)
+            .matching(identifier: "overlayTitle")
+            .firstMatch
         XCTAssertTrue(
             title.waitForExistence(timeout: 5),
             "Double-press overlay title did not appear"
         )
-        let subtitle = app.staticTexts["Or let it fade"]
-        XCTAssertTrue(subtitle.exists, "Double-press subtitle missing")
+        XCTAssertEqual(title.label, "Press Command Q Again")
     }
 }

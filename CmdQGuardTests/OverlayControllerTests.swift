@@ -26,6 +26,7 @@ final class OverlayControllerTests: XCTestCase {
         controller.settingsSource = settings
 
         controller.handleCmdQDown(bundleID: "com.example.a", appName: "A")
+        XCTAssertEqual(controller.bundleID, "com.example.a")
         if case .holding(let start1) = controller.debugMachinePhase {
             controller.handleCmdQDown(bundleID: "com.example.a", appName: "A")
             if case .holding(let start2) = controller.debugMachinePhase {
@@ -36,6 +37,20 @@ final class OverlayControllerTests: XCTestCase {
         } else {
             XCTFail("first keyDown should transition to .holding")
         }
+    }
+
+    func testHoldProgressAdvancesForTimelineDate() {
+        let settings = ConfirmSettings(defaults: defaults)
+        settings.mode = .hold
+        settings.holdDuration = 1.0
+        let controller = OverlayController()
+        controller.settingsSource = settings
+
+        let before = Date()
+        controller.handleCmdQDown(bundleID: "com.example.timeline", appName: "Timeline")
+
+        XCTAssertLessThan(controller.currentProgress(at: before), 0.1)
+        XCTAssertEqual(controller.currentProgress(at: before.addingTimeInterval(0.5)), 0.5, accuracy: 0.1)
     }
 
     /// Regression: the hold-duration timer must not be invalidated and

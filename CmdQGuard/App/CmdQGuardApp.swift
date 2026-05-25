@@ -7,22 +7,26 @@ struct CmdQGuardApp: App {
     var body: some Scene {
         // Onboarding window — presented on first run by AppDelegate,
         // also reachable by the `onboarding` window id.
-        Window("Welcome to CmdQGuard", id: WindowID.onboarding.rawValue) {
+        Window("CmdQGuard", id: WindowID.onboarding.rawValue) {
             OnboardingView()
                 .environment(appDelegate.whitelist)
                 .environment(appDelegate.accessibility)
                 .environment(appDelegate.settings)
                 .environment(appDelegate.launchAtLogin)
                 .frame(width: 460, height: 540)
-                .preferredColorScheme(.light)
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About CmdQGuard") {
                     NSApp.orderFrontStandardAboutPanel(nil)
                 }
+            }
+            CommandGroup(replacing: .appTermination) {
+                Button("Close Control Panel") {
+                    appDelegate.hideControlPanel()
+                }
+                .keyboardShortcut("q")
             }
         }
 
@@ -35,9 +39,6 @@ struct CmdQGuardApp: App {
                 .environment(appDelegate.accessibility)
                 .environment(appDelegate.settings)
                 .environment(appDelegate.launchAtLogin)
-                .frame(width: 520)
-                .frame(minHeight: 620)
-                .preferredColorScheme(.light)
         }
         .windowResizability(.contentSize)
     }

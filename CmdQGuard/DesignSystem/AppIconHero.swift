@@ -1,6 +1,58 @@
 import AppKit
 import SwiftUI
 
+/// Resolves and renders the real macOS app icon via NSWorkspace.
+struct AppIconView: View {
+    let app: InstalledApp
+    let size: CGFloat
+
+    var body: some View {
+        Image(nsImage: AppIconCache.icon(for: app))
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
+    }
+
+    static func prefetch(_ apps: [InstalledApp], startingAt startIndex: Int = 0) {
+        AppIconCache.prefetch(apps, startingAt: startIndex)
+    }
+}
+
+@MainActor
+private enum AppIconCache {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 512
+        return cache
+    }()
+    private static var prefetchTask: Task<Void, Never>?
+
+    static func icon(for app: InstalledApp) -> NSImage {
+        let key = app.url.path as NSString
+        if let cached = cache.object(forKey: key) {
+            return cached
+        }
+
+        let icon = NSWorkspace.shared.icon(forFile: app.url.path)
+        icon.size = NSSize(width: 64, height: 64)
+        cache.setObject(icon, forKey: key)
+        return icon
+    }
+
+    static func prefetch(_ apps: [InstalledApp], startingAt startIndex: Int = 0) {
+        prefetchTask?.cancel()
+        prefetchTask = Task { @MainActor in
+            for (index, app) in apps.enumerated() where index >= startIndex {
+                guard !Task.isCancelled else { return }
+                _ = icon(for: app)
+                if index.isMultiple(of: 8) {
+                    await Task.yield()
+                }
+            }
+        }
+    }
+}
+
 /// The big centered app icon inside the Aurora Halo overlay card.
 /// - Loads the real macOS app icon via `NSWorkspace` when a bundle ID is
 ///   known; falls back to `BrandMark` when the target app can't be
@@ -13,8 +65,8 @@ struct AppIconHero: View {
     /// 0...1 — same scalar the state-machine feeds to the card.
     var progress: Double = 0
     var size: CGFloat = 88
-    /// Hue for the aura; prototype default is 272°.
-    var glowHue: Double = 272
+    /// Hue for the aura; prototype default is 285°.
+    var glowHue: Double = 285
 
     var body: some View {
         ZStack {
@@ -31,7 +83,7 @@ struct AppIconHero: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(hue: glowHue/360, saturation: 0.85, brightness: 0.65)
+                        Color(hue: glowHue/360, saturation: 0.72, brightness: 0.94)
                             .opacity(0.15 + progress * 0.55),
                         .clear
                     ],
@@ -46,7 +98,7 @@ struct AppIconHero: View {
 
     @ViewBuilder
     private var icon: some View {
-        if let nsImage = resolvedIcon() {
+        if let nsImage = Self.resolvedIcon(bundleID: bundleID, size: size) {
             Image(nsImage: nsImage)
                 .resizable()
                 .interpolation(.high)
@@ -57,11 +109,13 @@ struct AppIconHero: View {
         }
     }
 
-    private func resolvedIcon() -> NSImage? {
+    static func resolvedIcon(bundleID: String?, size: CGFloat) -> NSImage? {
         guard let bundleID, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
             return nil
         }
-        return NSWorkspace.shared.icon(forFile: url.path)
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icon.size = NSSize(width: size, height: size)
+        return icon
     }
 }
 

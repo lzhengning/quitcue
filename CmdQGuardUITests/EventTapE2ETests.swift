@@ -18,6 +18,7 @@ import AppKit
 ///
 /// When run on a host that doesn't have the staged bundle, every case
 /// is skipped so the suite never fails outside the VM lane.
+@MainActor
 final class EventTapE2ETests: CmdQGuardUITestCase {
     private static let stagedBundlePath = "/Applications/CmdQGuard.app"
     private static let keysenderPath = "/Applications/Keysender.app/Contents/MacOS/keysender"
@@ -67,7 +68,7 @@ final class EventTapE2ETests: CmdQGuardUITestCase {
 
         // Diagnostic: confirm the whitelist arg-domain override actually
         // reached the staged bundle by checking Control Panel surface it.
-        let calcRow = cmdq.staticTexts["whitelistRow_com.apple.calculator"]
+        let calcRow = cmdq.descendants(matching: .any)["whitelistRow_com.apple.calculator"]
         XCTAssertTrue(
             calcRow.waitForExistence(timeout: 5),
             "Whitelist injection did not reach staged CmdQGuard.app"

@@ -9,7 +9,7 @@ final class OverlayWindow {
     private let hosting: NSHostingView<AuroraHaloHost>
 
     init(controller: OverlayController) {
-        let contentSize = NSSize(width: 360, height: 360)
+        let contentSize = NSSize(width: 460, height: 420)
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
@@ -65,13 +65,13 @@ struct AuroraHaloHost: View {
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
-            let _ = context.date
             AuroraHaloView(
                 mode: controller.mode,
-                progress: controller.currentProgress(),
-                appName: controller.appName
+                progress: controller.currentProgress(at: context.date),
+                appName: controller.appName,
+                bundleID: controller.bundleID
             )
         }
-        .frame(width: 360, height: 360)
+        .frame(width: 460, height: 420)
     }
 }

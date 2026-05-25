@@ -1,8 +1,8 @@
 import XCTest
 
 /// Shared base for XCUITest cases. Because the production PRD keeps the
-/// app alive after the last window closes (Dock icon visible,
-/// CGEventTap running in the background), and Dock-icon apps are
+/// app alive after the last window closes (CGEventTap running in the
+/// background), and macOS apps are
 /// single-instance per bundle ID, a prior test's still-running process
 /// will survive into the next test's `XCUIApplication.launch()` call
 /// and ignore the fresh `launchArguments`. We force-terminate any

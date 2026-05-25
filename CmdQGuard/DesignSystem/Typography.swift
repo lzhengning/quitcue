@@ -8,8 +8,8 @@ enum AppTypography {
     static let title1: Font = .system(size: 26, weight: .semibold)
     /// 20pt, semibold, letter-spacing -0.3 — section / step titles.
     static let title2: Font = .system(size: 20, weight: .semibold)
-    /// 15pt, semibold — overlay card title.
-    static let title3: Font = .system(size: 15, weight: .semibold)
+    /// 19pt, semibold — overlay card title.
+    static let title3: Font = .system(size: 19, weight: .semibold)
     /// 13pt, medium — row titles / primary body text.
     static let bodyMedium: Font = .system(size: 13, weight: .medium)
     /// 13pt, regular — body prose.

@@ -32,8 +32,10 @@ final class ControlPanelUITests: CmdQGuardUITestCase {
         app.launch()
         addTeardownBlock { app.terminate() }
 
-        let safariRow = app.staticTexts["whitelistRow_com.apple.Safari"]
-        let textEditRow = app.staticTexts["whitelistRow_com.apple.TextEdit"]
+        let safariRow = app.descendants(matching: .any)
+            .matching(identifier: "whitelistRow_com.apple.Safari").firstMatch
+        let textEditRow = app.descendants(matching: .any)
+            .matching(identifier: "whitelistRow_com.apple.TextEdit").firstMatch
 
         XCTAssertTrue(
             safariRow.waitForExistence(timeout: 5),

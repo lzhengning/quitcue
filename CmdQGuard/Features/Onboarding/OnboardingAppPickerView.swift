@@ -8,24 +8,27 @@ struct OnboardingAppPickerView: View {
     let apps: [InstalledApp]
     let onFinish: () -> Void
 
+    static let visibleTileCount = 20
+
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Step 2 of 2").stepLabelStyle().padding(.bottom, 6)
 
-            Text("Pick what to protect")
+            Text("Pick What to Protect")
                 .font(AppTypography.title2)
                 .tracking(-0.3)
+                .foregroundStyle(Color.inkPrimary)
                 .accessibilityIdentifier("appPickerTitle")
                 .padding(.bottom, 6)
 
-            Text("Tap to toggle. Recommended apps are pre-selected.")
+            Text("Recommended apps are pre-selected.")
                 .font(AppTypography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkTertiary)
                 .padding(.bottom, 18)
 
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: true) {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(orderedApps, id: \.bundleID) { app in
                         AppPickerTile(app: app, checked: flow.selectedBundleIDs.contains(app.bundleID)) {
@@ -34,6 +37,7 @@ struct OnboardingAppPickerView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                .background(OverlayScrollerConfigurator())
             }
             .frame(minHeight: 240)
 
@@ -42,12 +46,14 @@ struct OnboardingAppPickerView: View {
             HStack {
                 Text("\(flow.selectedBundleIDs.count) apps protected")
                     .font(AppTypography.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.inkTertiary)
                     .accessibilityIdentifier("appPickerCount")
                 Spacer()
                 Button("Clear") { flow.clearSelection() }
-                    .buttonStyle(.borderless)
-                finishButton.accessibilityIdentifier("finishButton")
+                    .buttonStyle(OnboardingTextButtonStyle())
+                finishButton
+                    .disabled(flow.selectedBundleIDs.isEmpty)
+                    .accessibilityIdentifier("finishButton")
             }
             .padding(.top, 14)
         }
@@ -69,11 +75,8 @@ struct OnboardingAppPickerView: View {
             Text("Finish →")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .frame(height: 30)
-                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPrimaryButtonStyle())
     }
 }
 
@@ -81,6 +84,8 @@ private struct AppPickerTile: View {
     let app: InstalledApp
     let checked: Bool
     let onToggle: () -> Void
+
+    @State private var isHovered = false
 
     var body: some View {
         Button(action: onToggle) {
@@ -92,7 +97,7 @@ private struct AppPickerTile: View {
                 Text(app.name)
                     .font(AppTypography.tileLabel)
                     .fontWeight(checked ? .semibold : .regular)
-                    .foregroundStyle(checked ? Color.primary : Color.secondary)
+                    .foregroundStyle(checked ? Color.inkPrimary : Color.inkSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: 72)
@@ -102,17 +107,43 @@ private struct AppPickerTile: View {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(checked ? Color.guardAccentTint : Color.clear)
+                    .fill(tileFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(checked ? Color.guardAccent : .clear, lineWidth: 1)
+                    .strokeBorder(tileStroke, lineWidth: checked ? 1 : 0.5)
             )
-            .opacity(checked ? 1 : 0.78)
+            .shadow(color: tileShadow, radius: isHovered ? 7 : 0, y: isHovered ? 3 : 0)
+            .opacity(checked || isHovered ? 1 : 0.78)
+            .scaleEffect(isHovered ? 1.015 : 1)
             .animation(.easeInOut(duration: 0.12), value: checked)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onHover { isHovered = $0 }
         .accessibilityIdentifier("appTile_\(app.bundleID)")
+    }
+
+    private var tileFill: Color {
+        if checked {
+            return Color.guardAccentTint
+        }
+        return isHovered ? Color.glassPillBackground : Color.clear
+    }
+
+    private var tileStroke: Color {
+        if checked {
+            return isHovered ? Color.guardAccent.opacity(0.9) : Color.guardAccent
+        }
+        return isHovered ? Color.glassPillLine : Color.clear
+    }
+
+    private var tileShadow: Color {
+        if checked {
+            return Color.guardAccent.opacity(isHovered ? 0.18 : 0)
+        }
+        return Color.black.opacity(isHovered ? 0.06 : 0)
     }
 
     private var checkmarkBadge: some View {
@@ -124,20 +155,7 @@ private struct AppPickerTile: View {
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.white)
             )
-            .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
+            .overlay(Circle().stroke(Color.glassBadgeStroke, lineWidth: 1.5))
             .offset(x: 4, y: 4)
-    }
-}
-
-/// Resolves and renders the real macOS app icon via NSWorkspace.
-struct AppIconView: View {
-    let app: InstalledApp
-    let size: CGFloat
-
-    var body: some View {
-        Image(nsImage: NSWorkspace.shared.icon(forFile: app.url.path))
-            .resizable()
-            .interpolation(.high)
-            .frame(width: size, height: size)
     }
 }

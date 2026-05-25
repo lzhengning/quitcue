@@ -2,14 +2,12 @@ import SwiftUI
 
 /// Container for the four-step first-run flow. Owns an `OnboardingFlow`
 /// and routes into the step-specific view. If onboarding was already
-/// completed on a prior run the window auto-dismisses and — when a UI
-/// test has requested it via `-CmdQGuard.showSettingsOnLaunch` — opens
-/// the Settings (Control Panel) scene before closing.
+/// completed on a prior run the window auto-dismisses; AppDelegate owns
+/// opening the Control Panel for test/debug launch arguments.
 struct OnboardingView: View {
     @Environment(WhitelistStore.self) private var whitelist
     @Environment(AccessibilityPermission.self) private var accessibility
     @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.openSettings) private var openSettings
 
     @State private var flow = OnboardingFlow()
     @State private var apps: [InstalledApp] = []
@@ -28,26 +26,24 @@ struct OnboardingView: View {
                     onFinish: { flow.finish(into: whitelist) }
                 )
             case .done:
-                OnboardingDoneView(onDismiss: finishAndOpenSettings)
+                OnboardingDoneView(
+                    selectedApps: selectedAppsForDone,
+                    protectedCount: flow.selectedBundleIDs.count,
+                    onDismiss: finishAndOpenSettings
+                )
             }
         }
-        .frame(width: 460)
+        .frame(width: 460, height: 540)
+        .background(UnifiedWindowChromeConfigurator())
         .onAppear {
             if OnboardingState.isComplete {
-                if UserDefaults.standard.bool(forKey: "CmdQGuard.showSettingsOnLaunch") {
-                    // Use the SwiftUI action here because the AppKit
-                    // selector (`showSettingsWindow:`) silently fails when
-                    // sent before the responder chain is ready, and
-                    // `onAppear` is exactly that moment. From a button
-                    // action later in the lifecycle the AppKit path is
-                    // safe — that's what `finishAndOpenSettings` uses.
-                    openSettings()
-                }
                 dismissSelf()
                 return
             }
             if apps.isEmpty {
-                apps = AppInventory.scan()
+                let scannedApps = AppInventory.scan()
+                apps = scannedApps
+                AppIconView.prefetch(scannedApps, startingAt: OnboardingAppPickerView.visibleTileCount)
                 if flow.selectedBundleIDs.isEmpty {
                     flow.selectedBundleIDs = Set(recommendedDefaultApps(from: apps))
                 }
@@ -119,6 +115,14 @@ struct OnboardingView: View {
         }
         return Array(recommended)
     }
+
+    private var selectedAppsForDone: [InstalledApp] {
+        let selected = flow.selectedBundleIDs
+        let selectedApps = apps.filter { selected.contains($0.bundleID) }
+        return selectedApps.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
 }
 
 private struct OnboardingShell<Content: View>: View {
@@ -128,53 +132,28 @@ private struct OnboardingShell<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            titleBar
-
             if step == .accessibility || step == .appPicker {
                 stepper
             }
 
             content()
         }
-        .background(
-            Color(red: 246/255, green: 246/255, blue: 248/255)
-                .opacity(0.94)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.black.opacity(0.10), lineWidth: 0.5)
-        )
-    }
-
-    private var titleBar: some View {
-        ZStack {
-            Text("Setup")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-        }
-        .frame(height: 38)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.5))
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.06))
-                .frame(height: 0.5)
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(GlassWindowBackground())
     }
 
     private var stepper: some View {
         HStack(spacing: 18) {
             StepBubble(index: 1, title: "Accessibility", active: step == .accessibility, done: step.rawValue > OnboardingStep.accessibility.rawValue)
-            StepBubble(index: 2, title: "Protected apps", active: step == .appPicker, done: step.rawValue > OnboardingStep.appPicker.rawValue)
+            StepBubble(index: 2, title: "Protected Apps", active: step == .appPicker, done: step.rawValue > OnboardingStep.appPicker.rawValue)
             Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.4))
+        .background(GlassTitlebarBackground())
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.black.opacity(0.05))
+                .fill(Color.glassDivider)
                 .frame(height: 0.5)
         }
     }
@@ -190,11 +169,14 @@ private struct StepBubble: View {
         HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(done ? Color.guardAccent : (active ? Color.white : Color.black.opacity(0.06)))
+                    .fill(done ? Color.guardPrimaryButton : (active ? Color.glassPillBackground : Color.glassWellTop))
                     .frame(width: 22, height: 22)
                     .overlay {
                         if active && !done {
-                            Circle().strokeBorder(Color.guardAccent, lineWidth: 2)
+                            Circle().strokeBorder(Color.guardPrimaryButton, lineWidth: 2)
+                            Circle().strokeBorder(Color.glassPillLine, lineWidth: 0.5)
+                        } else if !done {
+                            Circle().strokeBorder(Color.glassWellLine, lineWidth: 0.5)
                         }
                     }
                 if done {
@@ -204,13 +186,118 @@ private struct StepBubble: View {
                 } else {
                     Text("\(index)")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(active ? .primary : .secondary)
+                        .foregroundStyle(active ? Color.inkPrimary : Color.inkTertiary)
                 }
             }
 
             Text(title)
                 .font(.system(size: 13, weight: active ? .semibold : .regular))
-                .foregroundStyle(active ? .primary : .secondary)
+                .foregroundStyle(active ? Color.inkPrimary : Color.inkTertiary)
         }
+    }
+}
+
+struct GlassTitlebarBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color.glassTitlebarTop,
+                Color.glassTitlebarBottom
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+}
+
+struct OnboardingPrimaryButtonStyle: ButtonStyle {
+    var height: CGFloat = 30
+    var horizontalPadding: CGFloat = 18
+    var minWidth: CGFloat?
+
+    func makeBody(configuration: Configuration) -> some View {
+        OnboardingPrimaryButtonBody(
+            configuration: configuration,
+            height: height,
+            horizontalPadding: horizontalPadding,
+            minWidth: minWidth
+        )
+    }
+}
+
+private struct OnboardingPrimaryButtonBody: View {
+    let configuration: ButtonStyle.Configuration
+    let height: CGFloat
+    let horizontalPadding: CGFloat
+    let minWidth: CGFloat?
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    var body: some View {
+        configuration.label
+            .frame(minWidth: minWidth)
+            .padding(.horizontal, horizontalPadding)
+            .frame(height: height)
+            .background(background)
+            .scaleEffect(configuration.isPressed ? 0.985 : (isHovered && isEnabled ? 1.015 : 1))
+            .opacity(isEnabled ? 1 : 0.4)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.12), value: isEnabled)
+    }
+
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(isHovered && isEnabled ? Color.guardAccentDeep : Color.guardPrimaryButton)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.white.opacity(isHovered && isEnabled ? 0.10 : 0))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(.white.opacity(isHovered && isEnabled ? 0.18 : 0), lineWidth: 0.5)
+            }
+            .shadow(
+                color: Color.guardPrimaryButton.opacity(isHovered && isEnabled ? 0.28 : 0.14),
+                radius: isHovered && isEnabled ? 8 : 3,
+                y: isHovered && isEnabled ? 4 : 2
+            )
+    }
+}
+
+struct OnboardingTextButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        OnboardingTextButtonBody(configuration: configuration)
+    }
+}
+
+private struct OnboardingTextButtonBody: View {
+    let configuration: ButtonStyle.Configuration
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    var body: some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(isEnabled ? (isHovered ? Color.guardAccent : Color.inkTertiary) : Color.inkQuaternary.opacity(0.55))
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isHovered && isEnabled ? Color.glassPillBackground : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(isHovered && isEnabled ? Color.glassPillLine : Color.clear, lineWidth: 0.5)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }

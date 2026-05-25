@@ -1,4 +1,9 @@
+import AppKit
 import SwiftUI
+
+enum ControlPanelMetrics {
+    static let width: CGFloat = 520
+}
 
 /// Settings surface reopened via Spotlight or Cmd+Comma.
 /// Per design canvas: identity header → Protected Apps → Confirm Method →
@@ -13,86 +18,113 @@ struct ControlPanelView: View {
     @Environment(LaunchAtLoginManager.self) private var launchAtLogin
 
     @State private var installedApps: [InstalledApp] = []
-    @State private var appPickerPresentation: AppPickerPresentation?
+    private let protectedAppsColumnCount = 5
+    private let protectedAppsRowHeight: CGFloat = 70
+    private let protectedAppsColumnSpacing: CGFloat = 6
+    private let protectedAppsRowSpacing: CGFloat = 6
+    private let protectedAppsMaxFullRows = 4
+    private let protectedAppsScrollableRows: CGFloat = 4.25
+
+    private var protectedAppsVisibleTileCount: Int {
+        protectedAppsColumnCount * protectedAppsMaxFullRows
+    }
+
+    init(installedApps: [InstalledApp] = []) {
+        _installedApps = State(initialValue: installedApps)
+    }
 
     var body: some View {
         @Bindable var settings = settings
 
-        ScrollView {
-            VStack(spacing: 0) {
-                if !accessibility.isGranted {
-                    accessibilityWarningSection
-                }
-
-                protectedAppsSection
-
-                nativeGroup("Confirm method") {
-                    NativeRow {
-                        Picker("Method", selection: $settings.mode) {
-                            Text("Hold ⌘Q").tag(ConfirmMode.hold)
-                            Text("Press ⌘Q twice").tag(ConfirmMode.doublePress)
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
-                        .accessibilityIdentifier("confirmModePicker")
-                    }
-                }
-
-                nativeGroup(settings.mode == .hold ? "Hold duration" : "Window for 2nd press") {
-                    NativeRow {
-                        durationControl(settings: settings)
-                    }
-                }
-
-                generalSection
+        VStack(spacing: 0) {
+            if !accessibility.isGranted {
+                accessibilityWarningSection
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 14)
-            .padding(.bottom, 18)
+
+            protectedAppsSection
+
+            nativeGroup("Confirm Method") {
+                confirmModeControl(settings: settings)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+
+                nativeSeparator
+
+                durationControl(settings: settings)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 14)
+            }
+
+            generalSection
         }
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
+        .frame(width: ControlPanelMetrics.width, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(GlassWindowBackground())
+        .background(UnifiedWindowChromeConfigurator())
         .accessibilityIdentifier("accessibilityStatus")
         .onAppear {
-            loadInstalledAppsIfNeeded()
-        }
-        .sheet(item: $appPickerPresentation) { presentation in
-            AddProtectedAppSheet(
-                candidates: presentation.candidates,
-                onAdd: { bundleID in
-                    whitelist.add(bundleID)
-                    appPickerPresentation = nil
-                },
-                onCancel: { appPickerPresentation = nil }
-            )
+            let apps = loadInstalledAppsIfNeeded()
+            AppIconView.prefetch(apps, startingAt: protectedAppsVisibleTileCount)
         }
     }
 
     private func nativeGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.inkTertiary)
+                .padding(.horizontal, 14)
 
             VStack(spacing: 0) {
                 content()
             }
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.glassGroupTop,
+                                Color.glassGroupBottom
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.glassGroupInnerHighlight, lineWidth: 0.5)
+                    .blendMode(.screen)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.glassGroupLine, lineWidth: 0.5)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.glassGroupTopHighlight)
+                    .frame(height: 1)
+                    .blendMode(.screen)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.glassGroupBottomShade)
+                    .frame(height: 0.5)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
         }
         .padding(.bottom, 18)
     }
 
     private var nativeSeparator: some View {
         Rectangle()
-            .fill(Color.black.opacity(0.07))
+            .fill(Color.glassDivider)
             .frame(height: 0.5)
             .padding(.leading, 40)
     }
@@ -111,17 +143,6 @@ struct ControlPanelView: View {
         }
     }
 
-    private struct IconBubble: View {
-        let systemName: String
-        var body: some View {
-            Image(systemName: systemName)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, height: 22)
-                .background(Color.black.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        }
-    }
-
     private var identityHeader: some View {
         HStack(spacing: 12) {
             BrandMark(size: 44)
@@ -137,7 +158,7 @@ struct ControlPanelView: View {
                          ? guardingSummary
                          : "Accessibility: Not granted")
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkTertiary)
                         .accessibilityIdentifier("accessibilityStatus")
                 }
             }
@@ -164,19 +185,105 @@ struct ControlPanelView: View {
         }
     }
 
+    private func confirmModeControl(settings: ConfirmSettings) -> some View {
+        @Bindable var settings = settings
+
+        return HStack(spacing: 2) {
+            confirmModeButton(
+                title: "Hold ⌘Q",
+                mode: .hold,
+                selection: $settings.mode
+            )
+            confirmModeButton(
+                title: "Press ⌘Q twice",
+                mode: .doublePress,
+                selection: $settings.mode
+            )
+        }
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.glassWellTop,
+                            Color.glassWellBottom
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.glassWellLine, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("confirmModePicker")
+    }
+
+    private func confirmModeButton(
+        title: String,
+        mode: ConfirmMode,
+        selection: Binding<ConfirmMode>
+    ) -> some View {
+        let isSelected = selection.wrappedValue == mode
+
+        return Button {
+            selection.wrappedValue = mode
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? Color.white : Color.inkTertiary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isSelected ? Color.guardPrimaryButton : Color.clear)
+                )
+                .shadow(
+                    color: isSelected ? Color.guardPrimaryButton.opacity(0.25) : Color.clear,
+                    radius: 2,
+                    y: 1
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(isSelected ? Color.white.opacity(0.2) : Color.clear, lineWidth: 0.5)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
     @ViewBuilder
     private func durationControl(settings: ConfirmSettings) -> some View {
         @Bindable var settings = settings
         let isHold = settings.mode == .hold
 
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             HStack {
-                Text(activeTickLabel(for: settings))
-                    .font(.system(size: 13))
+                Text(isHold ? "Hold Duration" : "Press Window")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.inkTertiary)
                 Spacer()
-                Text("\(String(format: "%.1f", currentDuration(settings))) s")
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                Text("\(String(format: "%.1f", currentDuration(settings)))s")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Color.inkSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.glassPillBackground)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(Color.glassPillLine, lineWidth: 0.5)
+                    )
                     .accessibilityIdentifier("confirmDurationLabel")
             }
             Slider(
@@ -184,93 +291,215 @@ struct ControlPanelView: View {
                 in: currentRange(for: settings.mode),
                 step: 0.1
             )
+            .tint(.guardPrimaryButton)
             .accessibilityIdentifier("confirmDurationSlider")
 
-            if isHold {
-                HStack {
-                    ForEach(holdTicks, id: \.label) { tick in
-                        let active = abs(settings.holdDuration - tick.at) < 0.25
-                        Text(tick.label)
-                            .font(.system(size: 11, weight: active ? .semibold : .regular))
-                            .foregroundStyle(active ? Color.accentColor : .secondary)
-                            .frame(maxWidth: .infinity, alignment: tick.alignment)
-                    }
-                }
-            }
         }
-    }
-
-    private func activeTickLabel(for settings: ConfirmSettings) -> String {
-        guard settings.mode == .hold else { return "Window" }
-        for tick in holdTicks where abs(settings.holdDuration - tick.at) < 0.25 {
-            return tick.label
-        }
-        return "Custom"
-    }
-
-    private var holdTicks: [HoldTick] {
-        [
-            HoldTick(at: 1.0, label: "Fast", alignment: .leading),
-            HoldTick(at: 1.5, label: "Standard", alignment: .center),
-            HoldTick(at: 2.5, label: "Safe", alignment: .trailing)
-        ]
-    }
-
-    private struct HoldTick {
-        let at: TimeInterval
-        let label: String
-        let alignment: Alignment
     }
 
     private var protectedAppsSection: some View {
-        nativeGroup("Protected apps") {
-            if whitelist.bundleIDs.isEmpty {
-                Text("No protected apps yet.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .accessibilityIdentifier("protectedAppsEmpty")
-            } else {
-                ForEach(Array(whitelist.bundleIDs.enumerated()), id: \.element) { index, bundleID in
-                    if index > 0 { nativeSeparator }
-                    NativeRow(dense: true) {
-                        ProtectedAppRow(
-                            bundleID: bundleID,
-                            installed: installedApps.first(where: { $0.bundleID == bundleID }),
-                            onRemove: { whitelist.remove(bundleID) }
+        nativeGroup("Protected Apps") {
+            let tiles = orderedProtectedAppTiles
+
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVGrid(columns: protectedAppColumns, spacing: protectedAppsRowSpacing) {
+                    ForEach(tiles) { tile in
+                        ProtectedAppTile(
+                            tile: tile,
+                            checked: whitelist.contains(tile.bundleID),
+                            rowHeight: protectedAppsRowHeight,
+                            onToggle: {
+                                if whitelist.contains(tile.bundleID) {
+                                    whitelist.remove(tile.bundleID)
+                                } else {
+                                    whitelist.add(tile.bundleID)
+                                }
+                            }
                         )
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.top, 12)
+                .padding(.bottom, whitelist.bundleIDs.isEmpty ? 6 : 10)
+                .background(OverlayScrollerConfigurator())
+            }
+            .frame(height: protectedAppsGridHeight(for: tiles.count))
+
+            if whitelist.bundleIDs.isEmpty {
+                Text("Tap an app to start protecting it.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.inkTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 12)
+                    .accessibilityIdentifier("protectedAppsEmpty")
+            }
+        }
+    }
+
+    private var protectedAppColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: protectedAppsColumnSpacing), count: protectedAppsColumnCount)
+    }
+
+    private func protectedAppsGridHeight(for count: Int) -> CGFloat {
+        guard count > 0 else { return 0 }
+
+        let rows = Int(ceil(Double(count) / Double(protectedAppsColumnCount)))
+        if rows <= protectedAppsMaxFullRows {
+            return CGFloat(rows) * protectedAppsRowHeight
+                + CGFloat(max(rows - 1, 0)) * protectedAppsRowSpacing
+                + 22
+        }
+
+        return protectedAppsScrollableRows * protectedAppsRowHeight
+            + CGFloat(protectedAppsMaxFullRows) * protectedAppsRowSpacing
+            + 22
+    }
+
+    private var orderedProtectedAppTiles: [ProtectedAppTileModel] {
+        let selectedIDs = whitelist.bundleIDs
+        var byBundleID: [String: InstalledApp] = [:]
+        for app in installedApps where byBundleID[app.bundleID] == nil {
+            byBundleID[app.bundleID] = app
+        }
+
+        let selectedTiles = selectedIDs
+            .sorted()
+            .map { bundleID -> ProtectedAppTileModel in
+                if let installed = byBundleID[bundleID] {
+                    return ProtectedAppTileModel(app: installed)
+                }
+                return ProtectedAppTileModel(bundleID: bundleID)
             }
 
-            nativeSeparator
+        let selectedSet = Set(selectedIDs)
+        let remainingTiles = installedApps
+            .filter { !selectedSet.contains($0.bundleID) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .map(ProtectedAppTileModel.init(app:))
 
-            Button {
-                presentAppPicker()
-            } label: {
-                NativeRow(dense: true) {
-                    IconBubble(systemName: "plus")
-                    Text("Add app…")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.accentColor)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
+        return selectedTiles + remainingTiles
+    }
+
+    private struct ProtectedAppTileModel: Identifiable {
+        let bundleID: String
+        let name: String
+        let app: InstalledApp?
+
+        var id: String { bundleID }
+
+        init(app: InstalledApp) {
+            self.bundleID = app.bundleID
+            self.name = app.name
+            self.app = app
+        }
+
+        init(bundleID: String) {
+            self.bundleID = bundleID
+            self.name = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
+            self.app = nil
+        }
+    }
+
+    private struct ProtectedAppTile: View {
+        let tile: ProtectedAppTileModel
+        let checked: Bool
+        let rowHeight: CGFloat
+        let onToggle: () -> Void
+
+        @State private var isHovered = false
+
+        var body: some View {
+            Button(action: onToggle) {
+                VStack(spacing: 6) {
+                    ZStack(alignment: .bottomTrailing) {
+                        if let app = tile.app {
+                            AppIconView(app: app, size: 32)
+                        } else {
+                            Image(systemName: "app.dashed")
+                                .font(.system(size: 24))
+                                .foregroundStyle(Color.inkTertiary)
+                                .frame(width: 32, height: 32)
+                        }
+
+                        if checked {
+                            checkmarkBadge
+                        }
+                    }
+
+                    Text(tile.name)
+                        .font(AppTypography.tileLabel)
+                        .fontWeight(checked ? .semibold : .regular)
+                        .foregroundStyle(checked ? Color.inkPrimary : Color.inkSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 72)
                 }
-                .contentShape(Rectangle())
+                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity)
+                .frame(height: rowHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(tileFill)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(tileStroke, lineWidth: checked ? 1 : 0.5)
+                )
+                .shadow(color: tileShadow, radius: isHovered ? 7 : 0, y: isHovered ? 3 : 0)
+                .opacity(checked || isHovered ? 1 : 0.7)
+                .scaleEffect(isHovered ? 1.015 : 1)
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("addProtectedAppButton")
+            .onHover { isHovered = $0 }
+            .accessibilityIdentifier(checked ? "whitelistRow_\(tile.bundleID)" : "appTile_\(tile.bundleID)")
+            .accessibilityLabel(checked ? "Stop protecting \(tile.name)" : "Protect \(tile.name)")
+            .animation(.easeInOut(duration: 0.12), value: checked)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+        }
+
+        private var tileFill: Color {
+            if checked {
+                return Color.guardAccentTint
+            }
+            return isHovered ? Color.glassPillBackground : Color.clear
+        }
+
+        private var tileStroke: Color {
+            if checked {
+                return isHovered ? Color.guardAccent.opacity(0.9) : Color.guardAccent
+            }
+            return isHovered ? Color.glassPillLine : Color.clear
+        }
+
+        private var tileShadow: Color {
+            if checked {
+                return Color.guardAccent.opacity(isHovered ? 0.18 : 0)
+            }
+            return Color.black.opacity(isHovered ? 0.06 : 0)
+        }
+
+        private var checkmarkBadge: some View {
+            Circle()
+                .fill(Color.guardAccent)
+                .frame(width: 15, height: 15)
+                .overlay(
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+                .overlay(Circle().stroke(Color.glassBadgeStroke, lineWidth: 1.5))
+                .offset(x: 4, y: 4)
         }
     }
 
     private var generalSection: some View {
         nativeGroup("General") {
             NativeRow {
-                Text("Launch at login")
+                Text("Launch at Login")
                     .font(.system(size: 13))
+                    .foregroundStyle(Color.inkPrimary)
                 Spacer()
                 PillToggle(
                     isOn: Binding(
@@ -278,23 +507,8 @@ struct ControlPanelView: View {
                     set: { launchAtLogin.setEnabled($0) }
                 )
                 )
+                .accessibilityLabel("Launch at Login")
                 .accessibilityIdentifier("launchAtLoginToggle")
-            }
-
-            nativeSeparator
-
-            NativeRow {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Ghost mode")
-                        .font(.system(size: 13))
-                    Text("Hide menu bar icon and Dock tile")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                PillToggle(isOn: .constant(false))
-                    .disabled(true)
-                    .opacity(0.45)
             }
 
             if let error = launchAtLogin.lastError {
@@ -335,121 +549,6 @@ struct ControlPanelView: View {
         return installedApps
     }
 
-    private func presentAppPicker() {
-        let apps = loadInstalledAppsIfNeeded()
-        let candidates = apps.filter { !whitelist.contains($0.bundleID) }
-        appPickerPresentation = AppPickerPresentation(candidates: candidates)
-    }
-
-    private struct AppPickerPresentation: Identifiable {
-        let id = UUID()
-        let candidates: [InstalledApp]
-    }
-}
-
-private struct ProtectedAppRow: View {
-    let bundleID: String
-    let installed: InstalledApp?
-    let onRemove: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            if let installed {
-                AppIconView(app: installed, size: 22)
-            } else {
-                Image(systemName: "app.dashed")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 22, height: 22)
-            }
-
-            Text(installed?.name ?? bundleID)
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .accessibilityIdentifier("whitelistRow_\(bundleID)")
-
-            Spacer()
-
-            Button {
-                onRemove()
-            } label: {
-                Image(systemName: "minus")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, height: 20)
-                    .background(Color.black.opacity(0.06), in: Circle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Remove \(installed?.name ?? bundleID)")
-            .accessibilityIdentifier("removeProtectedApp_\(bundleID)")
-        }
-    }
-}
-
-private struct AddProtectedAppSheet: View {
-    let candidates: [InstalledApp]
-    let onAdd: (String) -> Void
-    let onCancel: () -> Void
-
-    @State private var filter: String = ""
-
-    private var filtered: [InstalledApp] {
-        guard !filter.isEmpty else { return candidates }
-        return candidates.filter { $0.name.localizedCaseInsensitiveContains(filter) }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Add protected app")
-                    .font(.title3).fontWeight(.semibold)
-                Spacer()
-                Button("Cancel", action: onCancel)
-            }
-
-            TextField("Search", text: $filter)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("addProtectedAppSearch")
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if filtered.isEmpty {
-                        Text("No apps found.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 32)
-                    } else {
-                        ForEach(filtered, id: \.bundleID) { app in
-                            Button {
-                                onAdd(app.bundleID)
-                            } label: {
-                                HStack(spacing: 10) {
-                                    AppIconView(app: app, size: 28)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(app.name).font(.system(size: 13, weight: .medium))
-                                        Text(app.bundleID).font(.caption.monospaced()).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 7)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("addCandidate_\(app.bundleID)")
-
-                            Divider()
-                        }
-                    }
-                }
-            }
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .padding(20)
-        .frame(minWidth: 460, minHeight: 440)
-    }
 }
 
 #Preview {
@@ -458,5 +557,129 @@ private struct AddProtectedAppSheet: View {
         .environment(AccessibilityPermission())
         .environment(ConfirmSettings())
         .environment(LaunchAtLoginManager(backend: SMAppServiceBackend()))
-        .frame(width: 540, height: 620)
+}
+
+enum UnifiedWindowChrome {
+    private static let titleViewIdentifier = NSUserInterfaceItemIdentifier("CmdQGuardUnifiedTitleView")
+    private static let titleBackgroundIdentifier = NSUserInterfaceItemIdentifier("CmdQGuardUnifiedTitleBackground")
+
+    @MainActor
+    static func apply(to window: NSWindow?, title: String = "CmdQGuard") {
+        guard let window else { return }
+
+        window.title = title
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = false
+        window.backgroundColor = windowBaseColor()
+        window.isOpaque = false
+        if #available(macOS 11.0, *) {
+            window.titlebarSeparatorStyle = .none
+        }
+        installTitlebarBackground(in: window)
+        installCenteredTitle(in: window, title: title)
+    }
+
+    @MainActor
+    private static func installTitlebarBackground(in window: NSWindow) {
+        guard let titlebarView = window.standardWindowButton(.closeButton)?.superview else { return }
+
+        titlebarView.subviews
+            .filter { $0.identifier == titleBackgroundIdentifier }
+            .forEach { $0.removeFromSuperview() }
+
+        let backgroundView = DraggableTitlebarHostingView(rootView: TitlebarBackground())
+        backgroundView.identifier = titleBackgroundIdentifier
+        backgroundView.translatesAutoresizingMaskIntoConstraints = false
+
+        titlebarView.addSubview(backgroundView, positioned: .below, relativeTo: titlebarView.subviews.first)
+        NSLayoutConstraint.activate([
+            backgroundView.leadingAnchor.constraint(equalTo: titlebarView.leadingAnchor),
+            backgroundView.trailingAnchor.constraint(equalTo: titlebarView.trailingAnchor),
+            backgroundView.topAnchor.constraint(equalTo: titlebarView.topAnchor),
+            backgroundView.bottomAnchor.constraint(equalTo: titlebarView.bottomAnchor)
+        ])
+    }
+
+    @MainActor
+    private static func installCenteredTitle(in window: NSWindow, title: String) {
+        guard let titlebarView = window.standardWindowButton(.closeButton)?.superview else { return }
+
+        titlebarView.subviews
+            .filter { $0.identifier == titleViewIdentifier }
+            .forEach { $0.removeFromSuperview() }
+
+        let hostingView = DraggableTitlebarHostingView(rootView: TitlebarIdentity(title: title))
+        hostingView.identifier = titleViewIdentifier
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        hostingView.setContentHuggingPriority(.required, for: .horizontal)
+        hostingView.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        titlebarView.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.centerXAnchor.constraint(equalTo: titlebarView.centerXAnchor),
+            hostingView.centerYAnchor.constraint(equalTo: titlebarView.centerYAnchor)
+        ])
+    }
+
+    private static func windowBaseColor() -> NSColor {
+        NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor(calibratedRed: 26/255, green: 26/255, blue: 29/255, alpha: 1)
+            }
+            return NSColor(calibratedRed: 240/255, green: 238/255, blue: 233/255, alpha: 1)
+        }
+    }
+
+    private struct TitlebarIdentity: View {
+        let title: String
+
+        var body: some View {
+            HStack(spacing: 6) {
+                BrandMark(size: 16, shadow: false)
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.inkPrimary)
+                    .lineLimit(1)
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private struct TitlebarBackground: View {
+        var body: some View {
+            ZStack {
+                GlassWindowBackground()
+                GlassTitlebarBackground()
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.glassTitlebarLine)
+                    .frame(height: 0.5)
+            }
+        }
+    }
+}
+
+private final class DraggableTitlebarHostingView<Content: View>: NSHostingView<Content> {
+    override var mouseDownCanMoveWindow: Bool { true }
+}
+
+struct UnifiedWindowChromeConfigurator: NSViewRepresentable {
+    var title = "CmdQGuard"
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            UnifiedWindowChrome.apply(to: view.window, title: title)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            UnifiedWindowChrome.apply(to: nsView.window, title: title)
+        }
+    }
 }

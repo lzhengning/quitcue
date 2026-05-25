@@ -1,47 +1,37 @@
 import SwiftUI
 
-/// iOS-style pill toggle used by the Accessibility onboarding row, per the
-/// prototype's inline-styled toggle. Matches macOS 14+ `Toggle(.switch)`
-/// accessibility traits (it reports as a `checkBox` to XCUI) but gives us
-/// pixel control over geometry and color.
+/// Theme-tinted system switch. On macOS 26 this inherits the native Liquid
+/// Glass switch rendering; older systems fall back to the platform switch.
 struct PillToggle: View {
     @Binding var isOn: Bool
     /// Called instead of direct `isOn` write when the user taps to turn ON.
     /// Lets callers route through `AccessibilityPermission.requestIfNeeded`.
     var onTurnOn: (() -> Void)?
 
-    private let size: CGSize = .init(width: 38, height: 22)
-    private let knob: CGFloat = 20
-
     var body: some View {
-        ZStack {
-            Capsule()
-                .fill(isOn ? Color(hue: 155/360, saturation: 0.60, brightness: 0.70) : Color(white: 0.47, opacity: 0.32))
-                .overlay(
-                    Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
-                )
+        Toggle("", isOn: binding)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .tint(.guardAccent)
+            .accentColor(.guardAccent)
+            .controlSize(.small)
+            .accessibilityValue(isOn ? "On" : "Off")
+    }
 
-            Circle()
-                .fill(Color.white)
-                .frame(width: knob, height: knob)
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 2)
-                .shadow(color: .black.opacity(0.04), radius: 0, y: 0)
-                .offset(x: isOn ? (size.width - knob) / 2 - 1 : -(size.width - knob) / 2 + 1)
-        }
-        .frame(width: size.width, height: size.height)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isOn {
-                isOn = false
-            } else if let onTurnOn {
-                onTurnOn()
+    private var binding: Binding<Bool> {
+        Binding {
+            isOn
+        } set: { newValue in
+            if newValue {
+                if !isOn, let onTurnOn {
+                    onTurnOn()
+                } else {
+                    isOn = true
+                }
             } else {
-                isOn = true
+                isOn = false
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: isOn)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityValue(isOn ? "On" : "Off")
     }
 }
 
@@ -56,13 +46,40 @@ struct SystemSettingsRow<Content: View>: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.systemRowBackground)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.glassGroupTop,
+                                Color.glassGroupBottom
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.glassGroupInnerHighlight, lineWidth: 0.5)
+                    .blendMode(.screen)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                    .strokeBorder(Color.glassGroupLine, lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.05), radius: 0, y: 0.5)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color.glassGroupTopHighlight)
+                    .frame(height: 1)
+                    .blendMode(.screen)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.glassGroupBottomShade)
+                    .frame(height: 0.5)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
     }
 }
 

@@ -65,4 +65,17 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(flow.step, .done)
         XCTAssertTrue(OnboardingState.isComplete)
     }
+
+    func testFinishWithEmptySelectionDoesNotComplete() {
+        let suite = UserDefaults(suiteName: suiteName + ".emptyFinish")!
+        suite.removePersistentDomain(forName: suiteName + ".emptyFinish")
+        let store = WhitelistStore(defaults: suite)
+        let flow = OnboardingFlow(startStep: .appPicker)
+
+        flow.finish(into: store)
+
+        XCTAssertTrue(store.bundleIDs.isEmpty)
+        XCTAssertEqual(flow.step, .appPicker)
+        XCTAssertFalse(OnboardingState.isComplete)
+    }
 }

@@ -62,6 +62,8 @@ final class OnboardingFlow {
     /// Commit the picker selection into the whitelist and mark onboarding
     /// as complete. The scene observes `.done` to present the final view.
     func finish(into whitelist: WhitelistStore) {
+        guard !selectedBundleIDs.isEmpty else { return }
+
         let current = Set(whitelist.bundleIDs)
         for id in selectedBundleIDs where !current.contains(id) {
             whitelist.add(id)

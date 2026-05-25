@@ -17,7 +17,7 @@ final class OverlayController {
     private(set) var isVisible: Bool = false
     private(set) var mode: ConfirmMode
     private(set) var appName: String = ""
-    private var bundleID: String?
+    private(set) var bundleID: String?
     private var machine: ConfirmStateMachine
     private var timeoutTimer: Timer?
     private var window: OverlayWindow?
@@ -77,7 +77,11 @@ final class OverlayController {
     /// Used by `AuroraHaloView`'s `TimelineView` to animate halo and
     /// (double-press mode) card fade-out.
     func currentProgress() -> Double {
-        machine.progress(at: Date())
+        currentProgress(at: Date())
+    }
+
+    func currentProgress(at date: Date) -> Double {
+        machine.progress(at: date)
     }
 
     // MARK: - Internals

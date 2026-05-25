@@ -1,13 +1,15 @@
 import XCTest
 
 /// M5 Control Panel expanded surface: confirm-method picker + duration
-/// slider + launch-at-login toggle + add/remove app affordances.
+/// slider + launch-at-login toggle + protected-app grid toggles.
+@MainActor
 final class ControlPanelM5UITests: CmdQGuardUITestCase {
 
     private func launch(extraArgs: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
 "-com.cmdqguard.onboarding.completed", "YES",
+            "-CmdQGuard.useUITestAppInventory", "YES",
             "-CmdQGuard.showSettingsOnLaunch", "YES"
         ] + extraArgs
         app.launch()
@@ -18,28 +20,33 @@ final class ControlPanelM5UITests: CmdQGuardUITestCase {
     func testConfirmMethodPickerAndDurationSliderRender() {
         let app = launch()
         XCTAssertTrue(
-            app.descendants(matching: .any)
-                .matching(identifier: "confirmModePicker")
-                .firstMatch.waitForExistence(timeout: 5),
-            "confirmModePicker missing"
+            app.staticTexts["Confirm Method"].waitForExistence(timeout: 5),
+            "confirm method section missing"
         )
         XCTAssertTrue(
-            app.descendants(matching: .any)
-                .matching(identifier: "confirmDurationSlider")
-                .firstMatch.exists,
-            "confirmDurationSlider missing"
+            app.buttons["Hold ⌘Q"].exists,
+            "hold confirm option missing"
         )
         XCTAssertTrue(
-            app.staticTexts["confirmDurationLabel"].exists,
+            app.buttons["Press ⌘Q twice"].exists,
+            "double-press confirm option missing"
+        )
+        XCTAssertTrue(
+            app.sliders.firstMatch.exists,
+            "confirm duration slider missing"
+        )
+        XCTAssertTrue(
+            app.staticTexts["1.5s"].exists,
             "duration label missing"
         )
     }
 
     func testLaunchAtLoginToggleRenders() {
         let app = launch()
-        let toggle = app.descendants(matching: .any)
-            .matching(identifier: "launchAtLoginToggle").firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "launch-at-login toggle missing")
+        XCTAssertTrue(
+            app.staticTexts["Launch at Login"].waitForExistence(timeout: 5),
+            "launch-at-login label missing"
+        )
     }
 
     func testProtectedAppsEmptyStateByDefault() {
@@ -48,7 +55,7 @@ final class ControlPanelM5UITests: CmdQGuardUITestCase {
         let app = launch(extraArgs: [
             "-com.cmdqguard.whitelist.bundleIDs", "()"
         ])
-        let empty = app.staticTexts["protectedAppsEmpty"]
+        let empty = app.staticTexts["Tap an app to start protecting it."]
         XCTAssertTrue(empty.waitForExistence(timeout: 5), "expected empty state")
     }
 
@@ -59,43 +66,25 @@ final class ControlPanelM5UITests: CmdQGuardUITestCase {
         let row = app.descendants(matching: .any)
             .matching(identifier: "whitelistRow_com.apple.Safari").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "whitelist row missing")
-        let remove = app.descendants(matching: .any)
-            .matching(identifier: "removeProtectedApp_com.apple.Safari").firstMatch
-        XCTAssertTrue(remove.exists, "remove button missing")
+        row.click()
+        XCTAssertFalse(row.waitForExistence(timeout: 2), "selected tile should toggle off")
     }
 
-    func testAddProtectedAppButtonOpensSheet() {
-        let app = launch()
-        let addButton = app.buttons["addProtectedAppButton"]
-        XCTAssertTrue(addButton.waitForExistence(timeout: 5), "Add button missing")
-        addButton.click()
-
-        let search = app.textFields["addProtectedAppSearch"]
-        XCTAssertTrue(search.waitForExistence(timeout: 5), "Add sheet did not open")
-    }
-
-    func testAddProtectedAppSheetShowsAvailableApps() throws {
-        let safariLocations = [
-            "/Applications/Safari.app",
-            "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app"
-        ]
-        guard safariLocations.contains(where: { FileManager.default.fileExists(atPath: $0) }) else {
-            throw XCTSkip("Safari is not installed in a known system location")
-        }
-
+    func testAvailableAppGridTileCanBeSelected() {
         let app = launch(extraArgs: [
             "-com.cmdqguard.whitelist.bundleIDs", "()"
         ])
-        let addButton = app.buttons["addProtectedAppButton"]
-        XCTAssertTrue(addButton.waitForExistence(timeout: 5), "Add button missing")
-        addButton.click()
-
-        let firstCandidate = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "addCandidate_"))
+        let safariTile = app.descendants(matching: .any)
+            .matching(identifier: "appTile_com.apple.Safari")
             .firstMatch
         XCTAssertTrue(
-            firstCandidate.waitForExistence(timeout: 5),
-            "Add protected app sheet should show available apps"
+            safariTile.waitForExistence(timeout: 5),
+            "available app grid should show Safari"
         )
+        safariTile.click()
+
+        let selectedTile = app.descendants(matching: .any)
+            .matching(identifier: "whitelistRow_com.apple.Safari").firstMatch
+        XCTAssertTrue(selectedTile.waitForExistence(timeout: 2), "available tile should toggle on")
     }
 }

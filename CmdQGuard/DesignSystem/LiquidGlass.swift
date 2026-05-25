@@ -1,4 +1,52 @@
+import AppKit
 import SwiftUI
+
+/// Recreates the prototype's light Liquid Glass window wash:
+/// a translucent white shell with subtle purple refraction behind content.
+struct GlassWindowBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            Color.pageBackground
+
+            LinearGradient(
+                colors: [
+                    .glassShellTop,
+                    .glassShellBottom
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            GeometryReader { proxy in
+                let longEdge = max(proxy.size.width, proxy.size.height)
+
+                RadialGradient(
+                    colors: [
+                        .glassWashPrimary.opacity(colorScheme == .dark ? 0.40 : 0.50),
+                        .glassWashPrimary.opacity(0)
+                    ],
+                    center: UnitPoint(x: 0.2, y: 0),
+                    startRadius: 0,
+                    endRadius: longEdge * 0.62
+                )
+                .blendMode(colorScheme == .dark ? .screen : .normal)
+
+                RadialGradient(
+                    colors: [
+                        .glassWashSecondary.opacity(colorScheme == .dark ? 0.30 : 0.31),
+                        .glassWashSecondary.opacity(0)
+                    ],
+                    center: UnitPoint(x: 1, y: 1),
+                    startRadius: 0,
+                    endRadius: longEdge * 0.58
+                )
+                .blendMode(colorScheme == .dark ? .screen : .normal)
+            }
+        }
+    }
+}
 
 /// Applies the native Liquid Glass effect on macOS 26+, falling back to
 /// `.ultraThinMaterial` with a thin specular stroke on earlier versions.
@@ -53,5 +101,27 @@ extension View {
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
             tint: tint
         )
+    }
+}
+
+struct OverlayScrollerConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            configureScrollView(for: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            configureScrollView(for: nsView)
+        }
+    }
+
+    private func configureScrollView(for view: NSView) {
+        guard let scrollView = view.enclosingScrollView else { return }
+        scrollView.scrollerStyle = .overlay
+        scrollView.autohidesScrollers = true
     }
 }

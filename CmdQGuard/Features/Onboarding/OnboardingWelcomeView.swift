@@ -13,6 +13,7 @@ struct OnboardingWelcomeView: View {
             Text("Welcome to CmdQGuard")
                 .font(AppTypography.title1)
                 .tracking(-0.5)
+                .foregroundStyle(Color.inkPrimary)
                 .accessibilityIdentifier("welcomeTitle")
 
             (Text("Stops accidental ")
@@ -21,7 +22,7 @@ struct OnboardingWelcomeView: View {
              + Text("Q").font(.system(.caption, design: .monospaced)).fontWeight(.semibold)
              + Text(" from closing the apps you care about. Silent. No menubar. No Dock."))
                 .font(AppTypography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
                 .frame(maxWidth: 320)
@@ -42,11 +43,8 @@ struct OnboardingWelcomeView: View {
             Text("Get started")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 24)
-                .frame(height: 34)
-                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPrimaryButtonStyle(height: 34, horizontalPadding: 24))
     }
 }
 

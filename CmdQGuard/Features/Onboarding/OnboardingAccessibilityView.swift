@@ -13,15 +13,16 @@ struct OnboardingAccessibilityView: View {
                 .stepLabelStyle()
                 .padding(.bottom, 6)
 
-            Text("Grant Accessibility access")
+            Text("Grant Accessibility Access")
                 .font(AppTypography.title2)
                 .tracking(-0.3)
+                .foregroundStyle(Color.inkPrimary)
                 .accessibilityIdentifier("accessibilityStepTitle")
                 .padding(.bottom, 6)
 
-            Text("Required to intercept ⌘Q before apps see it. Tap the toggle to allow.")
+            Text("Required to intercept ⌘Q before apps see it.")
                 .font(AppTypography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkTertiary)
                 .padding(.bottom, 18)
 
             SystemSettingsRow {
@@ -30,9 +31,10 @@ struct OnboardingAccessibilityView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("CmdQGuard")
                             .font(AppTypography.bodyMedium)
+                            .foregroundStyle(Color.inkPrimary)
                         Text(accessibility.isGranted ? "Allowed" : "Allow to control your Mac")
                             .font(AppTypography.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.inkTertiary)
                     }
                     Spacer()
                     PillToggle(
@@ -54,7 +56,7 @@ struct OnboardingAccessibilityView: View {
             HStack {
                 Text(accessibility.isGranted ? "✓ Permission granted" : "0 of 1 enabled")
                     .font(AppTypography.footnote)
-                    .foregroundStyle(accessibility.isGranted ? Color.guardProtected : .secondary)
+                    .foregroundStyle(accessibility.isGranted ? Color.guardProtected : Color.inkTertiary)
                     .accessibilityIdentifier("accessibilityFooterStatus")
                 Spacer()
                 continueButton
@@ -74,11 +76,8 @@ struct OnboardingAccessibilityView: View {
             Text("Continue →")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .frame(height: 30)
-                .background(Color.guardAccent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnboardingPrimaryButtonStyle())
     }
 }
 

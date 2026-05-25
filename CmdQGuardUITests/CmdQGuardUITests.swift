@@ -1,10 +1,11 @@
 import XCTest
 
 /// M1 smoke coverage: activation policy + first-run onboarding window.
+@MainActor
 final class CmdQGuardUITests: CmdQGuardUITestCase {
     private let bundleID = "com.cmdqguard.CmdQGuard"
 
-    func testAppLaunchesWithRegularActivationPolicy() throws {
+    func testBackgroundLaunchHidesDockIcon() throws {
         let app = XCUIApplication()
         app.launchArguments = [
 "-com.cmdqguard.onboarding.completed", "YES"
@@ -12,13 +13,7 @@ final class CmdQGuardUITests: CmdQGuardUITestCase {
         app.launch()
         addTeardownBlock { app.terminate() }
 
-        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
-        let target = try XCTUnwrap(running.first, "CmdQGuard process not found")
-        XCTAssertEqual(
-            target.activationPolicy,
-            .regular,
-            "App must launch with a regular activation policy (Dock icon visible)"
-        )
+        try waitForActivationPolicy(.accessory)
     }
 
     func testOnboardingWindowAppearsOnFirstRun() {
@@ -29,41 +24,80 @@ final class CmdQGuardUITests: CmdQGuardUITestCase {
         app.launch()
         addTeardownBlock { app.terminate() }
 
-        let window = app.windows["Welcome to CmdQGuard"]
+        let welcomeTitle = app.staticTexts["welcomeTitle"]
         XCTAssertTrue(
-            window.waitForExistence(timeout: 5),
+            welcomeTitle.waitForExistence(timeout: 5),
             "Onboarding window did not appear when onboarding was not yet complete"
         )
     }
 
-    func testReopenAfterOnboardingCompleteShowsControlPanel() throws {
+    func testCommandQHidesControlPanelButKeepsAppRunning() throws {
         let app = XCUIApplication()
         app.launchArguments = [
-"-com.cmdqguard.onboarding.completed", "YES"
+"-com.cmdqguard.onboarding.completed", "YES",
+"-CmdQGuard.showSettingsOnLaunch", "YES"
         ]
         app.launch()
         addTeardownBlock { app.terminate() }
 
-        let addButton = app.buttons["addProtectedAppButton"]
-        XCTAssertFalse(
-            addButton.waitForExistence(timeout: 1),
-            "Control Panel should not open automatically for a normal background launch"
-        )
-
-        try reopenCmdQGuardViaLaunchServices()
-
+        let controlPanelTitle = app.staticTexts["Protected Apps"]
         XCTAssertTrue(
-            addButton.waitForExistence(timeout: 5),
-            "Clicking the Dock icon after onboarding should reopen the Control Panel"
+            controlPanelTitle.waitForExistence(timeout: 5),
+            "Control Panel should open for this lifecycle check"
         )
+
+        app.typeKey("q", modifierFlags: .command)
+
+        XCTAssertFalse(
+            controlPanelTitle.waitForExistence(timeout: 1),
+            "⌘Q should close the Control Panel"
+        )
+        try waitForActivationPolicy(.accessory)
     }
 
-    private func reopenCmdQGuardViaLaunchServices() throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-b", bundleID]
-        try process.run()
-        process.waitUntilExit()
-        XCTAssertEqual(process.terminationStatus, 0)
+    func testCloseButtonHidesControlPanelButKeepsAppRunning() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+"-com.cmdqguard.onboarding.completed", "YES",
+"-CmdQGuard.showSettingsOnLaunch", "YES"
+        ]
+        app.launch()
+        addTeardownBlock { app.terminate() }
+
+        let controlPanelTitle = app.staticTexts["Protected Apps"]
+        XCTAssertTrue(
+            controlPanelTitle.waitForExistence(timeout: 5),
+            "Control Panel should open for this lifecycle check"
+        )
+
+        app.windows.firstMatch.buttons[XCUIIdentifierCloseWindow].click()
+
+        XCTAssertFalse(
+            controlPanelTitle.waitForExistence(timeout: 1),
+            "Closing the window should hide the Control Panel"
+        )
+        try waitForActivationPolicy(.accessory)
+    }
+
+    private func waitForActivationPolicy(
+        _ expected: NSApplication.ActivationPolicy,
+        timeout: TimeInterval = 4
+    ) throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        var lastPolicy: NSApplication.ActivationPolicy?
+
+        while Date() < deadline {
+            let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            let target = try XCTUnwrap(running.first, "CmdQGuard process not found")
+            lastPolicy = target.activationPolicy
+            if lastPolicy == expected { return }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+
+        XCTAssertEqual(
+            lastPolicy,
+            expected,
+            "CmdQGuard activation policy did not become \(expected)"
+        )
     }
 }
