@@ -15,7 +15,8 @@ NOTARY_PROFILE="${CMDQGUARD_NOTARY_PROFILE:-}"
 CLEAN_STAGING=1
 
 XCODEBUILD_BIN="${XCODEBUILD_BIN:-xcodebuild}"
-HDIUTIL_BIN="${HDIUTIL_BIN:-hdiutil}"
+CREATE_DMG_BIN="${CREATE_DMG_BIN:-create-dmg}"
+SWIFT_BIN="${SWIFT_BIN:-swift}"
 XCRUN_BIN="${XCRUN_BIN:-xcrun}"
 PLISTBUDDY_BIN="${PLISTBUDDY_BIN:-/usr/libexec/PlistBuddy}"
 
@@ -31,16 +32,76 @@ Options:
   --signing-identity NAME    Override CODE_SIGN_IDENTITY for the Release build
   --development-team TEAMID  Override DEVELOPMENT_TEAM for the Release build
   --notary-profile NAME      Submit and staple the DMG with notarytool keychain profile
+  --background PATH          Use a custom DMG background image
   --no-clean                 Keep the staging folder under output-dir/.staging
   -h, --help                 Show this help
 
 Environment:
-  CMDQGUARD_CODESIGN_IDENTITY, CMDQGUARD_DEVELOPMENT_TEAM, CMDQGUARD_NOTARY_PROFILE
+  CMDQGUARD_CODESIGN_IDENTITY, CMDQGUARD_DEVELOPMENT_TEAM, CMDQGUARD_NOTARY_PROFILE,
+  CMDQGUARD_DMG_BACKGROUND
 USAGE
 }
 
 log() {
   printf '\033[1;34m[release-dmg]\033[0m %s\n' "$*"
+}
+
+render_default_background() {
+  local output="$1"
+
+  "${SWIFT_BIN}" - "${output}" <<'SWIFT'
+import AppKit
+import Foundation
+
+let output = URL(fileURLWithPath: CommandLine.arguments[1])
+let size = NSSize(width: 680, height: 420)
+let image = NSImage(size: size)
+
+image.lockFocus()
+
+let bounds = NSRect(origin: .zero, size: size)
+NSColor(calibratedRed: 0.96, green: 0.93, blue: 0.86, alpha: 1).setFill()
+bounds.fill()
+
+if let gradient = NSGradient(
+  starting: NSColor(calibratedRed: 0.99, green: 0.97, blue: 0.92, alpha: 1),
+  ending: NSColor(calibratedRed: 0.86, green: 0.84, blue: 0.77, alpha: 1)
+) {
+  gradient.draw(in: bounds, angle: -24)
+}
+
+NSColor(calibratedWhite: 1, alpha: 0.32).setFill()
+NSBezierPath(roundedRect: NSRect(x: 38, y: 34, width: 604, height: 352), xRadius: 34, yRadius: 34).fill()
+
+let arrow = NSBezierPath()
+arrow.lineWidth = 5
+arrow.lineCapStyle = .round
+arrow.lineJoinStyle = .round
+arrow.move(to: NSPoint(x: 288, y: 210))
+arrow.curve(
+  to: NSPoint(x: 394, y: 210),
+  controlPoint1: NSPoint(x: 322, y: 228),
+  controlPoint2: NSPoint(x: 360, y: 228)
+)
+arrow.move(to: NSPoint(x: 376, y: 229))
+arrow.line(to: NSPoint(x: 398, y: 210))
+arrow.line(to: NSPoint(x: 376, y: 191))
+NSColor(calibratedRed: 0.39, green: 0.42, blue: 0.50, alpha: 0.30).setStroke()
+arrow.stroke()
+
+image.unlockFocus()
+
+guard
+  let tiff = image.tiffRepresentation,
+  let bitmap = NSBitmapImageRep(data: tiff),
+  let data = bitmap.representation(using: .png, properties: [:])
+else {
+  fputs("Failed to render DMG background\n", stderr)
+  exit(1)
+}
+
+try data.write(to: output)
+SWIFT
 }
 
 while [[ $# -gt 0 ]]; do
@@ -63,6 +124,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --notary-profile)
       NOTARY_PROFILE="$2"
+      shift 2
+      ;;
+    --background)
+      CMDQGUARD_DMG_BACKGROUND="$2"
       shift 2
       ;;
     --no-clean)
@@ -119,21 +184,42 @@ RELEASE_ID="${APP_NAME}-${VERSION}+${BUILD_NUMBER}"
 mkdir -p "${OUTPUT_DIR}"
 STAGING_ROOT="${OUTPUT_DIR}/.staging"
 STAGING_DIR="${STAGING_ROOT}/${RELEASE_ID}"
+BACKGROUND_PATH="${CMDQGUARD_DMG_BACKGROUND:-${STAGING_ROOT}/${RELEASE_ID}-background.png}"
 DMG_PATH="${OUTPUT_DIR}/${RELEASE_ID}.dmg"
 
 log "Staging ${APP_NAME}.app..."
 rm -rf "${STAGING_DIR}" "${DMG_PATH}"
 mkdir -p "${STAGING_DIR}"
 ditto "${APP_PATH}" "${STAGING_DIR}/${APP_NAME}.app"
-ln -s /Applications "${STAGING_DIR}/Applications"
 
-log "Creating ${DMG_PATH}..."
-"${HDIUTIL_BIN}" create \
-  -volname "${RELEASE_ID}" \
-  -srcfolder "${STAGING_DIR}" \
-  -ov \
-  -format UDZO \
-  "${DMG_PATH}"
+if [[ -z "${CMDQGUARD_DMG_BACKGROUND:-}" ]]; then
+  log "Rendering default DMG background..."
+  render_default_background "${BACKGROUND_PATH}"
+fi
+
+CREATE_DMG_ARGS=(
+  --volname "${APP_NAME}"
+  --background "${BACKGROUND_PATH}"
+  --window-pos 200 120
+  --window-size 680 420
+  --text-size 12
+  --icon-size 128
+  --icon "${APP_NAME}.app" 180 210
+  --hide-extension "${APP_NAME}.app"
+  --app-drop-link 500 210
+  --format UDZO
+  --no-internet-enable
+)
+
+for icon_name in "${APP_NAME}.icns" AppIcon.icns; do
+  if [[ -f "${APP_PATH}/Contents/Resources/${icon_name}" ]]; then
+    CREATE_DMG_ARGS+=(--volicon "${APP_PATH}/Contents/Resources/${icon_name}")
+    break
+  fi
+done
+
+log "Creating ${DMG_PATH} with create-dmg..."
+"${CREATE_DMG_BIN}" "${CREATE_DMG_ARGS[@]}" "${DMG_PATH}" "${STAGING_DIR}"
 
 if [[ -n "${NOTARY_PROFILE}" ]]; then
   log "Submitting DMG for notarization with profile '${NOTARY_PROFILE}'..."

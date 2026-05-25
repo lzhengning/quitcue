@@ -10,6 +10,7 @@ Milestone 1 — project skeleton. Onboarding, overlay, and control-panel views a
 
 - Xcode 26 (for macOS 26 SDK)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
+- [create-dmg](https://github.com/create-dmg/create-dmg): `brew install create-dmg`
 
 ## Generate the Xcode project
 
@@ -26,8 +27,9 @@ The generated `.xcodeproj` is git-ignored; `project.yml` is the source of truth.
 scripts/package-release-dmg.sh
 ```
 
-The script builds the `CmdQGuard` scheme with the `Release` configuration and
-writes `dist/CmdQGuard-<version>+<build>.dmg`.
+The script builds the `CmdQGuard` scheme with the `Release` configuration,
+then uses `create-dmg` to write a styled installer disk image at
+`dist/CmdQGuard-<version>+<build>.dmg`.
 
 For a Developer ID release, pass the signing identity and optional notarytool
 keychain profile:

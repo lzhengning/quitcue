@@ -44,22 +44,32 @@ PLIST
 touch "${APP}/Contents/MacOS/CmdQGuard"
 STUB
 
-cat > "${BIN}/hdiutil" <<'STUB'
+cat > "${BIN}/create-dmg" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'hdiutil %s\n' "$*" >> "${CMDQGUARD_TEST_LOG}"
-OUT="${@: -1}"
+printf 'create-dmg %s\n' "$*" >> "${CMDQGUARD_TEST_LOG}"
+OUT="${@: -2:1}"
 mkdir -p "$(dirname "${OUT}")"
 printf 'fake dmg\n' > "${OUT}"
 STUB
 
-chmod +x "${BIN}/xcodebuild" "${BIN}/hdiutil"
+cat > "${BIN}/swift" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'swift %s\n' "$*" >> "${CMDQGUARD_TEST_LOG}"
+OUT="${2:?missing background output path}"
+mkdir -p "$(dirname "${OUT}")"
+printf 'fake png\n' > "${OUT}"
+STUB
+
+chmod +x "${BIN}/xcodebuild" "${BIN}/create-dmg" "${BIN}/swift"
 
 OUT_DIR="${TMP}/dist"
 DERIVED_DATA="${TMP}/DerivedData"
 CMDQGUARD_TEST_LOG="${LOG}" \
   XCODEBUILD_BIN="${BIN}/xcodebuild" \
-  HDIUTIL_BIN="${BIN}/hdiutil" \
+  CREATE_DMG_BIN="${BIN}/create-dmg" \
+  SWIFT_BIN="${BIN}/swift" \
   "${ROOT}/scripts/package-release-dmg.sh" \
     --output-dir "${OUT_DIR}" \
     --derived-data "${DERIVED_DATA}" \
@@ -73,6 +83,10 @@ DMG="${OUT_DIR}/CmdQGuard-9.8.7+42.dmg"
 
 grep -F -- "-configuration Release" "${LOG}" >/dev/null
 grep -F -- "-scheme CmdQGuard" "${LOG}" >/dev/null
+grep -F -- "create-dmg --volname CmdQGuard" "${LOG}" >/dev/null
+grep -F -- "--window-size 680 420" "${LOG}" >/dev/null
+grep -F -- "--icon CmdQGuard.app 180 210" "${LOG}" >/dev/null
+grep -F -- "--app-drop-link 500 210" "${LOG}" >/dev/null
 grep -F -- "CmdQGuard-9.8.7+42" "${LOG}" >/dev/null
 
 STAGE="${OUT_DIR}/.staging/CmdQGuard-9.8.7+42"
@@ -80,8 +94,8 @@ STAGE="${OUT_DIR}/.staging/CmdQGuard-9.8.7+42"
   echo "Expected staged app at ${STAGE}/CmdQGuard.app" >&2
   exit 1
 }
-[[ -L "${STAGE}/Applications" ]] || {
-  echo "Expected Applications symlink in DMG staging folder" >&2
+[[ -f "${OUT_DIR}/.staging/CmdQGuard-9.8.7+42-background.png" ]] || {
+  echo "Expected rendered DMG background" >&2
   exit 1
 }
 
