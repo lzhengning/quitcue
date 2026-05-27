@@ -78,7 +78,8 @@ xcodegen generate
 scripts/package-release-dmg.sh
 ```
 
-生成的安装镜像会输出到 `dist/QuitCue-<version>+<build>.dmg`。
+生成的安装镜像会输出到 `dist/QuitCue-<version>.dmg`。如果需要从发布 tag
+注入版本，可传入 `--marketing-version` 和 `--build-number`。
 
 安装后，需要在 macOS 中授予 QuitCue 辅助功能权限，应用才能拦截 <kbd>⌘Q</kbd>：
 

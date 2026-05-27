@@ -12,6 +12,8 @@ DERIVED_DATA="${ROOT}/build/ReleaseDerivedData"
 SIGNING_IDENTITY="${QUITCUE_CODESIGN_IDENTITY:-}"
 DEVELOPMENT_TEAM="${QUITCUE_DEVELOPMENT_TEAM:-}"
 NOTARY_PROFILE="${QUITCUE_NOTARY_PROFILE:-}"
+MARKETING_VERSION_OVERRIDE="${QUITCUE_MARKETING_VERSION:-}"
+BUILD_NUMBER_OVERRIDE="${QUITCUE_BUILD_NUMBER:-}"
 CLEAN_STAGING=1
 
 XCODEBUILD_BIN="${XCODEBUILD_BIN:-xcodebuild}"
@@ -31,6 +33,8 @@ Options:
   --derived-data PATH        DerivedData directory. Default: build/ReleaseDerivedData
   --signing-identity NAME    Override CODE_SIGN_IDENTITY for the Release build
   --development-team TEAMID  Override DEVELOPMENT_TEAM for the Release build
+  --marketing-version X.Y.Z  Override MARKETING_VERSION for the Release build
+  --build-number NUMBER      Override CURRENT_PROJECT_VERSION for the Release build
   --notary-profile NAME      Submit and staple the DMG with notarytool keychain profile
   --background PATH          Use a custom DMG background image
   --no-clean                 Keep the staging folder under output-dir/.staging
@@ -38,7 +42,7 @@ Options:
 
 Environment:
   QUITCUE_CODESIGN_IDENTITY, QUITCUE_DEVELOPMENT_TEAM, QUITCUE_NOTARY_PROFILE,
-  QUITCUE_DMG_BACKGROUND
+  QUITCUE_MARKETING_VERSION, QUITCUE_BUILD_NUMBER, QUITCUE_DMG_BACKGROUND
 USAGE
 }
 
@@ -122,6 +126,14 @@ while [[ $# -gt 0 ]]; do
       DEVELOPMENT_TEAM="$2"
       shift 2
       ;;
+    --marketing-version)
+      MARKETING_VERSION_OVERRIDE="$2"
+      shift 2
+      ;;
+    --build-number)
+      BUILD_NUMBER_OVERRIDE="$2"
+      shift 2
+      ;;
     --notary-profile)
       NOTARY_PROFILE="$2"
       shift 2
@@ -166,6 +178,14 @@ if [[ -n "${DEVELOPMENT_TEAM}" ]]; then
   BUILD_ARGS+=("DEVELOPMENT_TEAM=${DEVELOPMENT_TEAM}")
 fi
 
+if [[ -n "${MARKETING_VERSION_OVERRIDE}" ]]; then
+  BUILD_ARGS+=("MARKETING_VERSION=${MARKETING_VERSION_OVERRIDE}")
+fi
+
+if [[ -n "${BUILD_NUMBER_OVERRIDE}" ]]; then
+  BUILD_ARGS+=("CURRENT_PROJECT_VERSION=${BUILD_NUMBER_OVERRIDE}")
+fi
+
 log "Building ${APP_NAME} (${CONFIGURATION})..."
 "${XCODEBUILD_BIN}" "${BUILD_ARGS[@]}"
 
@@ -179,13 +199,14 @@ INFO_PLIST="${APP_PATH}/Contents/Info.plist"
 
 VERSION="$("${PLISTBUDDY_BIN}" -c "Print :CFBundleShortVersionString" "${INFO_PLIST}")"
 BUILD_NUMBER="$("${PLISTBUDDY_BIN}" -c "Print :CFBundleVersion" "${INFO_PLIST}")"
-RELEASE_ID="${APP_NAME}-${VERSION}+${BUILD_NUMBER}"
+RELEASE_ID="${APP_NAME}-${VERSION}"
 
 mkdir -p "${OUTPUT_DIR}"
 STAGING_ROOT="${OUTPUT_DIR}/.staging"
 STAGING_DIR="${STAGING_ROOT}/${RELEASE_ID}"
 BACKGROUND_PATH="${QUITCUE_DMG_BACKGROUND:-${STAGING_ROOT}/${RELEASE_ID}-background.png}"
 DMG_PATH="${OUTPUT_DIR}/${RELEASE_ID}.dmg"
+log "Resolved ${APP_NAME} ${VERSION} (build ${BUILD_NUMBER})"
 
 log "Staging ${APP_NAME}.app..."
 rm -rf "${STAGING_DIR}" "${DMG_PATH}"

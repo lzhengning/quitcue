@@ -15,11 +15,21 @@ set -euo pipefail
 printf 'xcodebuild %s\n' "$*" >> "${QUITCUE_TEST_LOG}"
 
 DERIVED_DATA=""
+MARKETING_VERSION="9.8.7"
+BUILD_NUMBER="42"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -derivedDataPath)
       DERIVED_DATA="$2"
       shift 2
+      ;;
+    MARKETING_VERSION=*)
+      MARKETING_VERSION="${1#MARKETING_VERSION=}"
+      shift
+      ;;
+    CURRENT_PROJECT_VERSION=*)
+      BUILD_NUMBER="${1#CURRENT_PROJECT_VERSION=}"
+      shift
       ;;
     *)
       shift
@@ -29,15 +39,15 @@ done
 
 APP="${DERIVED_DATA}/Build/Products/Release/QuitCue.app"
 mkdir -p "${APP}/Contents/MacOS"
-cat > "${APP}/Contents/Info.plist" <<'PLIST'
+cat > "${APP}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleShortVersionString</key>
-  <string>9.8.7</string>
+  <string>${MARKETING_VERSION}</string>
   <key>CFBundleVersion</key>
-  <string>42</string>
+  <string>${BUILD_NUMBER}</string>
 </dict>
 </plist>
 PLIST
@@ -73,9 +83,11 @@ QUITCUE_TEST_LOG="${LOG}" \
   "${ROOT}/scripts/package-release-dmg.sh" \
     --output-dir "${OUT_DIR}" \
     --derived-data "${DERIVED_DATA}" \
+    --marketing-version 1.2.3 \
+    --build-number 456 \
     --no-clean
 
-DMG="${OUT_DIR}/QuitCue-9.8.7+42.dmg"
+DMG="${OUT_DIR}/QuitCue-1.2.3.dmg"
 [[ -f "${DMG}" ]] || {
   echo "Expected DMG at ${DMG}" >&2
   exit 1
@@ -83,18 +95,20 @@ DMG="${OUT_DIR}/QuitCue-9.8.7+42.dmg"
 
 grep -F -- "-configuration Release" "${LOG}" >/dev/null
 grep -F -- "-scheme QuitCue" "${LOG}" >/dev/null
+grep -F -- "MARKETING_VERSION=1.2.3" "${LOG}" >/dev/null
+grep -F -- "CURRENT_PROJECT_VERSION=456" "${LOG}" >/dev/null
 grep -F -- "create-dmg --volname QuitCue" "${LOG}" >/dev/null
 grep -F -- "--window-size 680 452" "${LOG}" >/dev/null
 grep -F -- "--icon QuitCue.app 180 210" "${LOG}" >/dev/null
 grep -F -- "--app-drop-link 500 210" "${LOG}" >/dev/null
-grep -F -- "QuitCue-9.8.7+42" "${LOG}" >/dev/null
+grep -F -- "QuitCue-1.2.3" "${LOG}" >/dev/null
 
-STAGE="${OUT_DIR}/.staging/QuitCue-9.8.7+42"
+STAGE="${OUT_DIR}/.staging/QuitCue-1.2.3"
 [[ -d "${STAGE}/QuitCue.app" ]] || {
   echo "Expected staged app at ${STAGE}/QuitCue.app" >&2
   exit 1
 }
-[[ -f "${OUT_DIR}/.staging/QuitCue-9.8.7+42-background.png" ]] || {
+[[ -f "${OUT_DIR}/.staging/QuitCue-1.2.3-background.png" ]] || {
   echo "Expected rendered DMG background" >&2
   exit 1
 }
