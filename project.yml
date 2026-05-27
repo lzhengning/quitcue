@@ -1,6 +1,6 @@
-name: CmdQGuard
+name: QuitCue
 options:
-  bundleIdPrefix: com.cmdqguard
+  bundleIdPrefix: com.quitcue
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -26,85 +26,85 @@ settings:
       SWIFT_OPTIMIZATION_LEVEL: "-O"
 
 targets:
-  CmdQGuard:
+  QuitCue:
     type: application
     platform: macOS
     sources:
-      - path: CmdQGuard
+      - path: QuitCue
         excludes:
           - "Resources/Info.plist"
-          - "CmdQGuard.entitlements"
+          - "QuitCue.entitlements"
     info:
-      path: CmdQGuard/Resources/Info.plist
+      path: QuitCue/Resources/Info.plist
       properties:
-        CFBundleName: CmdQGuard
-        CFBundleDisplayName: CmdQGuard
+        CFBundleName: QuitCue
+        CFBundleDisplayName: QuitCue
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        CFBundleIdentifier: com.cmdqguard.CmdQGuard
+        CFBundleIdentifier: com.quitcue.QuitCue
         CFBundlePackageType: APPL
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
         LSUIElement: false
-        NSHumanReadableCopyright: "© 2026 CmdQGuard"
+        NSHumanReadableCopyright: "© 2026 QuitCue"
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         NSSupportsAutomaticTermination: false
         NSSupportsSuddenTermination: false
     entitlements:
-      path: CmdQGuard/CmdQGuard.entitlements
+      path: QuitCue/QuitCue.entitlements
       properties:
         com.apple.security.app-sandbox: false
     settings:
       base:
-        CODE_SIGN_ENTITLEMENTS: CmdQGuard/CmdQGuard.entitlements
-        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuard
+        CODE_SIGN_ENTITLEMENTS: QuitCue/QuitCue.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.quitcue.QuitCue
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: CmdQGuard/Resources/Info.plist
+        INFOPLIST_FILE: QuitCue/Resources/Info.plist
         ENABLE_PREVIEWS: YES
         COMBINE_HIDPI_IMAGES: YES
-        ASSETCATALOG_COMPILER_APPICON_NAME: CmdQGuard
+        ASSETCATALOG_COMPILER_APPICON_NAME: QuitCue
 
-  CmdQGuardTests:
+  QuitCueTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - CmdQGuardTests
+      - QuitCueTests
     dependencies:
-      - target: CmdQGuard
+      - target: QuitCue
         link: false
         copy: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuardTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.quitcue.QuitCueTests
         BUNDLE_LOADER: $(TEST_HOST)
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CmdQGuard.app/Contents/MacOS/CmdQGuard
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/QuitCue.app/Contents/MacOS/QuitCue
 
-  CmdQGuardUITests:
+  QuitCueUITests:
     type: bundle.ui-testing
     platform: macOS
     sources:
-      - CmdQGuardUITests
+      - QuitCueUITests
     dependencies:
-      - target: CmdQGuard
+      - target: QuitCue
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.cmdqguard.CmdQGuardUITests
-        TEST_TARGET_NAME: CmdQGuard
+        PRODUCT_BUNDLE_IDENTIFIER: com.quitcue.QuitCueUITests
+        TEST_TARGET_NAME: QuitCue
 
 schemes:
-  CmdQGuard:
+  QuitCue:
     build:
       targets:
-        CmdQGuard: all
+        QuitCue: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - CmdQGuardTests
-        - CmdQGuardUITests
+        - QuitCueTests
+        - QuitCueUITests
     profile:
       config: Release
     archive:

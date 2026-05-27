@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="CmdQGuard"
-SCHEME="CmdQGuard"
+APP_NAME="QuitCue"
+SCHEME="QuitCue"
 CONFIGURATION="Release"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT="${ROOT}/CmdQGuard.xcodeproj"
+PROJECT="${ROOT}/QuitCue.xcodeproj"
 OUTPUT_DIR="${ROOT}/dist"
 DERIVED_DATA="${ROOT}/build/ReleaseDerivedData"
-SIGNING_IDENTITY="${CMDQGUARD_CODESIGN_IDENTITY:-}"
-DEVELOPMENT_TEAM="${CMDQGUARD_DEVELOPMENT_TEAM:-}"
-NOTARY_PROFILE="${CMDQGUARD_NOTARY_PROFILE:-}"
+SIGNING_IDENTITY="${QUITCUE_CODESIGN_IDENTITY:-}"
+DEVELOPMENT_TEAM="${QUITCUE_DEVELOPMENT_TEAM:-}"
+NOTARY_PROFILE="${QUITCUE_NOTARY_PROFILE:-}"
 CLEAN_STAGING=1
 
 XCODEBUILD_BIN="${XCODEBUILD_BIN:-xcodebuild}"
@@ -37,8 +37,8 @@ Options:
   -h, --help                 Show this help
 
 Environment:
-  CMDQGUARD_CODESIGN_IDENTITY, CMDQGUARD_DEVELOPMENT_TEAM, CMDQGUARD_NOTARY_PROFILE,
-  CMDQGUARD_DMG_BACKGROUND
+  QUITCUE_CODESIGN_IDENTITY, QUITCUE_DEVELOPMENT_TEAM, QUITCUE_NOTARY_PROFILE,
+  QUITCUE_DMG_BACKGROUND
 USAGE
 }
 
@@ -127,7 +127,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --background)
-      CMDQGUARD_DMG_BACKGROUND="$2"
+      QUITCUE_DMG_BACKGROUND="$2"
       shift 2
       ;;
     --no-clean)
@@ -184,7 +184,7 @@ RELEASE_ID="${APP_NAME}-${VERSION}+${BUILD_NUMBER}"
 mkdir -p "${OUTPUT_DIR}"
 STAGING_ROOT="${OUTPUT_DIR}/.staging"
 STAGING_DIR="${STAGING_ROOT}/${RELEASE_ID}"
-BACKGROUND_PATH="${CMDQGUARD_DMG_BACKGROUND:-${STAGING_ROOT}/${RELEASE_ID}-background.png}"
+BACKGROUND_PATH="${QUITCUE_DMG_BACKGROUND:-${STAGING_ROOT}/${RELEASE_ID}-background.png}"
 DMG_PATH="${OUTPUT_DIR}/${RELEASE_ID}.dmg"
 
 log "Staging ${APP_NAME}.app..."
@@ -192,7 +192,7 @@ rm -rf "${STAGING_DIR}" "${DMG_PATH}"
 mkdir -p "${STAGING_DIR}"
 ditto "${APP_PATH}" "${STAGING_DIR}/${APP_NAME}.app"
 
-if [[ -z "${CMDQGUARD_DMG_BACKGROUND:-}" ]]; then
+if [[ -z "${QUITCUE_DMG_BACKGROUND:-}" ]]; then
   log "Rendering default DMG background..."
   render_default_background "${BACKGROUND_PATH}"
 fi
@@ -201,7 +201,7 @@ CREATE_DMG_ARGS=(
   --volname "${APP_NAME}"
   --background "${BACKGROUND_PATH}"
   --window-pos 200 120
-  --window-size 680 420
+  --window-size 680 452
   --text-size 12
   --icon-size 128
   --icon "${APP_NAME}.app" 180 210
