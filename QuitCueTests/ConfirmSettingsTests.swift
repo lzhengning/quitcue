@@ -20,6 +20,7 @@ final class ConfirmSettingsTests: XCTestCase {
 
     func testDefaultsAreSensible() {
         let s = ConfirmSettings(defaults: defaults)
+        XCTAssertTrue(s.isEnabled)
         XCTAssertEqual(s.mode, .hold)
         XCTAssertEqual(s.holdDuration, ConfirmConfig.default.holdDuration)
         XCTAssertEqual(s.doublePressWindow, ConfirmConfig.default.doublePressWindow)
@@ -27,11 +28,13 @@ final class ConfirmSettingsTests: XCTestCase {
 
     func testPersistenceRoundTrip() {
         let s = ConfirmSettings(defaults: defaults)
+        s.isEnabled = false
         s.mode = .doublePress
         s.holdDuration = 2.2
         s.doublePressWindow = 1.1
 
         let reloaded = ConfirmSettings(defaults: defaults)
+        XCTAssertFalse(reloaded.isEnabled)
         XCTAssertEqual(reloaded.mode, .doublePress)
         XCTAssertEqual(reloaded.holdDuration, 2.2, accuracy: 0.001)
         XCTAssertEqual(reloaded.doublePressWindow, 1.1, accuracy: 0.001)

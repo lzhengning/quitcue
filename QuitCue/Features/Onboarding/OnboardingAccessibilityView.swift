@@ -5,6 +5,7 @@ import SwiftUI
 /// the system TCC prompt. Continue stays disabled until trust lands.
 struct OnboardingAccessibilityView: View {
     let accessibility: AccessibilityPermission
+    let onBack: () -> Void
     let onContinue: () -> Void
 
     var body: some View {
@@ -59,6 +60,9 @@ struct OnboardingAccessibilityView: View {
                     .foregroundStyle(accessibility.isGranted ? Color.guardProtected : Color.inkTertiary)
                     .accessibilityIdentifier("accessibilityFooterStatus")
                 Spacer()
+                Button("← Back", action: onBack)
+                    .buttonStyle(OnboardingTextButtonStyle())
+                    .accessibilityIdentifier("accessibilityBackButton")
                 continueButton
                     .disabled(!accessibility.isGranted)
                     .accessibilityIdentifier("accessibilityContinueButton")
@@ -82,6 +86,6 @@ struct OnboardingAccessibilityView: View {
 }
 
 #Preview {
-    OnboardingAccessibilityView(accessibility: AccessibilityPermission(), onContinue: {})
+    OnboardingAccessibilityView(accessibility: AccessibilityPermission(), onBack: {}, onContinue: {})
         .frame(width: 480, height: 560)
 }

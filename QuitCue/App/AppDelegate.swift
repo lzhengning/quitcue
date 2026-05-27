@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func wireOverlayPipeline() {
         overlay.settingsSource = settings
+        interceptor.isEnabled = { ConfirmSettings.isProtectionEnabled() }
         interceptor.onCmdQDown = { [weak self] bundleID, appName in
             self?.overlay.handleCmdQDown(bundleID: bundleID, appName: appName)
         }

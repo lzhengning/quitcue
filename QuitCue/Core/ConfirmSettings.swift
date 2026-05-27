@@ -7,16 +7,24 @@ import Observation
 @MainActor
 @Observable
 final class ConfirmSettings {
-    static let modeKey = OverlayController.modeDefaultsKey
-    static let holdDurationKey = "com.quitcue.holdDuration"
-    static let doublePressWindowKey = "com.quitcue.doublePressWindow"
+    nonisolated static let enabledKey = "com.quitcue.enabled"
+    nonisolated static let modeKey = "com.quitcue.confirmMode"
+    nonisolated static let holdDurationKey = "com.quitcue.holdDuration"
+    nonisolated static let doublePressWindowKey = "com.quitcue.doublePressWindow"
 
     /// Slider bounds; exposed so the UI view and tests agree.
     static let holdDurationRange: ClosedRange<TimeInterval> = 0.5...3.0
     static let doublePressWindowRange: ClosedRange<TimeInterval> = 0.6...2.0
 
+    nonisolated static func isProtectionEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: enabledKey).map { _ in defaults.bool(forKey: enabledKey) } ?? true
+    }
+
     private let defaults: UserDefaults
 
+    var isEnabled: Bool {
+        didSet { defaults.set(isEnabled, forKey: Self.enabledKey) }
+    }
     var mode: ConfirmMode {
         didSet { defaults.set(mode.rawValue, forKey: Self.modeKey) }
     }
@@ -29,6 +37,7 @@ final class ConfirmSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.isEnabled = Self.isProtectionEnabled(in: defaults)
         self.mode = (defaults.string(forKey: Self.modeKey)
                      .flatMap(ConfirmMode.init(rawValue:))) ?? .hold
         let hd = defaults.double(forKey: Self.holdDurationKey)

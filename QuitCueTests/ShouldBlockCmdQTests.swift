@@ -14,6 +14,16 @@ final class ShouldBlockCmdQTests: XCTestCase {
         ))
     }
 
+    func testIgnoresCmdQWhenProtectionDisabled() {
+        XCTAssertFalse(shouldBlockCmdQ(
+            keyCode: kVK_ANSI_Q,
+            flags: .maskCommand,
+            frontmostBundleID: "com.apple.Safari",
+            whitelist: whitelist,
+            isEnabled: false
+        ))
+    }
+
     func testIgnoresCmdQOnNonWhitelistedApp() {
         XCTAssertFalse(shouldBlockCmdQ(
             keyCode: kVK_ANSI_Q,

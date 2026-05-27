@@ -57,6 +57,10 @@ final class OnboardingFlow {
         }
     }
 
+    func selectAll(_ bundleIDs: [String]) {
+        selectedBundleIDs = Set(bundleIDs.filter { !$0.isEmpty })
+    }
+
     func clearSelection() { selectedBundleIDs.removeAll() }
 
     /// Commit the picker selection into the whitelist and mark onboarding

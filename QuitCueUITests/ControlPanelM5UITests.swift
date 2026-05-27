@@ -10,7 +10,8 @@ final class ControlPanelM5UITests: QuitCueUITestCase {
         app.launchArguments = [
 "-com.quitcue.onboarding.completed", "YES",
             "-QuitCue.useUITestAppInventory", "YES",
-            "-QuitCue.showSettingsOnLaunch", "YES"
+            "-QuitCue.showSettingsOnLaunch", "YES",
+            "-com.quitcue.holdDuration", "1.5"
         ] + extraArgs
         app.launch()
         addTeardownBlock { app.terminate() }

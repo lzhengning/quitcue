@@ -52,6 +52,12 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(flow.selectedBundleIDs.isEmpty)
     }
 
+    func testSelectAllReplacesSelection() {
+        let flow = OnboardingFlow(preselected: ["com.apple.Safari"])
+        flow.selectAll(["com.apple.TextEdit", "com.apple.Notes"])
+        XCTAssertEqual(flow.selectedBundleIDs, ["com.apple.TextEdit", "com.apple.Notes"])
+    }
+
     func testFinishCommitsIntoWhitelistAndMarksComplete() {
         let suite = UserDefaults(suiteName: suiteName + ".finish")!
         suite.removePersistentDomain(forName: suiteName + ".finish")

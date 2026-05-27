@@ -72,12 +72,20 @@ struct ControlPanelView: View {
         }
     }
 
-    private func nativeGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func nativeGroup<Content: View, Action: View>(
+        _ title: String,
+        @ViewBuilder action: () -> Action,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.inkTertiary)
-                .padding(.horizontal, 14)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.inkTertiary)
+                Spacer(minLength: 8)
+                action()
+            }
+            .padding(.horizontal, 14)
 
             VStack(spacing: 0) {
                 content()
@@ -122,6 +130,10 @@ struct ControlPanelView: View {
         .padding(.bottom, 18)
     }
 
+    private func nativeGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        nativeGroup(title, action: { EmptyView() }, content: content)
+    }
+
     private var nativeSeparator: some View {
         Rectangle()
             .fill(Color.glassDivider)
@@ -152,11 +164,9 @@ struct ControlPanelView: View {
                     .tracking(-0.2)
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(accessibility.isGranted ? Color.guardProtected : .orange)
+                        .fill(statusDotColor)
                         .frame(width: 7, height: 7)
-                    Text(accessibility.isGranted
-                         ? guardingSummary
-                         : "Accessibility: Not granted")
+                    Text(statusSummary)
                         .font(.system(size: 12))
                         .foregroundStyle(Color.inkTertiary)
                         .accessibilityIdentifier("accessibilityStatus")
@@ -170,6 +180,16 @@ struct ControlPanelView: View {
     private var guardingSummary: String {
         let n = whitelist.bundleIDs.count
         return "Guarding \(n) \(n == 1 ? "app" : "apps")"
+    }
+
+    private var statusDotColor: Color {
+        if !settings.isEnabled { return Color.inkQuaternary }
+        return accessibility.isGranted ? Color.guardProtected : .orange
+    }
+
+    private var statusSummary: String {
+        if !settings.isEnabled { return "QuitCue disabled" }
+        return accessibility.isGranted ? guardingSummary : "Accessibility: Not granted"
     }
 
     private var accessibilityWarningSection: some View {
@@ -299,6 +319,11 @@ struct ControlPanelView: View {
 
     private var protectedAppsSection: some View {
         nativeGroup("Protected Apps") {
+            NativeHeaderLink(selectAllTitle) {
+                toggleAllProtectedApps()
+            }
+            .accessibilityIdentifier("protectedAppsSelectAllButton")
+        } content: {
             let tiles = orderedProtectedAppTiles
 
             ScrollView(.vertical, showsIndicators: true) {
@@ -333,6 +358,26 @@ struct ControlPanelView: View {
                     .padding(.bottom, 12)
                     .accessibilityIdentifier("protectedAppsEmpty")
             }
+        }
+    }
+
+    private var selectAllTitle: String {
+        let tiles = orderedProtectedAppTiles
+        guard !tiles.isEmpty else { return "Select All" }
+        return tiles.allSatisfy { whitelist.contains($0.bundleID) } ? "Deselect All" : "Select All"
+    }
+
+    private func toggleAllProtectedApps() {
+        let tiles = orderedProtectedAppTiles
+        guard !tiles.isEmpty else { return }
+
+        let shouldDeselect = tiles.allSatisfy { whitelist.contains($0.bundleID) }
+        for bundleID in Array(whitelist.bundleIDs) {
+            whitelist.remove(bundleID)
+        }
+        guard !shouldDeselect else { return }
+        for tile in tiles {
+            whitelist.add(tile.bundleID)
         }
     }
 
@@ -495,7 +540,21 @@ struct ControlPanelView: View {
     }
 
     private var generalSection: some View {
-        nativeGroup("General") {
+        @Bindable var settings = settings
+
+        return nativeGroup("General") {
+            NativeRow {
+                Text("Enable QuitCue")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.inkPrimary)
+                Spacer()
+                PillToggle(isOn: $settings.isEnabled)
+                    .accessibilityLabel("Enable QuitCue")
+                    .accessibilityIdentifier("enableQuitCueToggle")
+            }
+
+            nativeSeparator
+
             NativeRow {
                 Text("Launch at Login")
                     .font(.system(size: 13))
@@ -549,6 +608,28 @@ struct ControlPanelView: View {
         return installedApps
     }
 
+}
+
+private struct NativeHeaderLink: View {
+    let title: String
+    let action: () -> Void
+    @State private var isHovered = false
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isHovered ? Color.guardAccentDeep : Color.guardAccent)
+                .underline(isHovered, color: Color.guardAccent)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
 }
 
 #Preview {

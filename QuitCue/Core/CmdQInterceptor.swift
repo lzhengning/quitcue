@@ -23,6 +23,7 @@ final class CmdQInterceptor {
     /// Dispatched on the main actor.
     var onCmdQDown: (@MainActor @Sendable (_ bundleID: String?, _ appName: String?) -> Void)?
     var onCmdQUp: (@MainActor @Sendable () -> Void)?
+    var isEnabled: @Sendable () -> Bool = { true }
 
     init(store: WhitelistStore) {
         self.store = store
@@ -91,7 +92,8 @@ final class CmdQInterceptor {
                 keyCode: keyCode,
                 flags: flags,
                 frontmostBundleID: bundleID,
-                whitelist: me.store.bundleIDs
+                whitelist: me.store.bundleIDs,
+                isEnabled: me.isEnabled()
             ) {
             case .startBlockedSequence:
                 debugLog("blocking keyDown keyCode=\(keyCode) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")

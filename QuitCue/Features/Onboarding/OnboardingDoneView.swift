@@ -5,6 +5,7 @@ import SwiftUI
 struct OnboardingDoneView: View {
     let selectedApps: [InstalledApp]
     let protectedCount: Int
+    let onBack: () -> Void
     let onDismiss: () -> Void
 
     private let fanMax = 5
@@ -48,8 +49,14 @@ struct OnboardingDoneView: View {
             helperText
                 .padding(.bottom, 24)
 
-            doneButton
-                .accessibilityIdentifier("doneCloseButton")
+            HStack(spacing: 8) {
+                Button("← Back", action: onBack)
+                    .buttonStyle(OnboardingTextButtonStyle())
+                    .accessibilityIdentifier("doneBackButton")
+
+                doneButton
+                    .accessibilityIdentifier("doneCloseButton")
+            }
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 32)
@@ -230,6 +237,7 @@ struct OnboardingDoneView: View {
     OnboardingDoneView(
         selectedApps: [],
         protectedCount: 6,
+        onBack: {},
         onDismiss: {}
     )
     .frame(width: 480, height: 560)

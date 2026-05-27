@@ -18,17 +18,23 @@ struct OnboardingView: View {
             case .welcome:
                 OnboardingWelcomeView(onNext: { flow.next() })
             case .accessibility:
-                OnboardingAccessibilityView(accessibility: accessibility, onContinue: { flow.next() })
+                OnboardingAccessibilityView(
+                    accessibility: accessibility,
+                    onBack: { flow.back() },
+                    onContinue: { flow.next() }
+                )
             case .appPicker:
                 OnboardingAppPickerView(
                     flow: flow,
                     apps: apps,
+                    onBack: { flow.back() },
                     onFinish: { flow.finish(into: whitelist) }
                 )
             case .done:
                 OnboardingDoneView(
                     selectedApps: selectedAppsForDone,
                     protectedCount: flow.selectedBundleIDs.count,
+                    onBack: { flow.back() },
                     onDismiss: finishAndOpenSettings
                 )
             }

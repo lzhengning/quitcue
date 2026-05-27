@@ -13,8 +13,10 @@ func shouldBlockCmdQ(
     keyCode: CGKeyCode,
     flags: CGEventFlags,
     frontmostBundleID: String?,
-    whitelist: [String]
+    whitelist: [String],
+    isEnabled: Bool = true
 ) -> Bool {
+    guard isEnabled else { return false }
     guard keyCode == kVK_ANSI_Q else { return false }
 
     // ⌘ held, and no other modifiers beyond the ones macOS always sets
@@ -43,7 +45,8 @@ struct CmdQInterceptionState {
         keyCode: CGKeyCode,
         flags: CGEventFlags,
         frontmostBundleID: String?,
-        whitelist: [String]
+        whitelist: [String],
+        isEnabled: Bool = true
     ) -> CmdQKeyDownDecision {
         guard keyCode == kVK_ANSI_Q, flags.contains(.maskCommand) else {
             return .pass
@@ -57,7 +60,8 @@ struct CmdQInterceptionState {
             keyCode: keyCode,
             flags: flags,
             frontmostBundleID: frontmostBundleID,
-            whitelist: whitelist
+            whitelist: whitelist,
+            isEnabled: isEnabled
         ) {
             isSuppressingCmdQSequence = true
             return .startBlockedSequence

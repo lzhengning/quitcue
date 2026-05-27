@@ -6,6 +6,7 @@ import SwiftUI
 struct OnboardingAppPickerView: View {
     let flow: OnboardingFlow
     let apps: [InstalledApp]
+    let onBack: () -> Void
     let onFinish: () -> Void
 
     static let visibleTileCount = 20
@@ -26,7 +27,20 @@ struct OnboardingAppPickerView: View {
             Text("Recommended apps are pre-selected.")
                 .font(AppTypography.body)
                 .foregroundStyle(Color.inkTertiary)
-                .padding(.bottom, 18)
+                .padding(.bottom, 14)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(flow.selectedBundleIDs.count) of \(apps.count) selected")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.inkTertiary)
+                    .accessibilityIdentifier("appPickerSelectedSummary")
+                Spacer()
+                Button(selectAllTitle, action: toggleAll)
+                    .buttonStyle(OnboardingInlineLinkButtonStyle())
+                    .accessibilityIdentifier("appPickerSelectAllButton")
+            }
+            .padding(.horizontal, 2)
+            .padding(.bottom, 8)
 
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVGrid(columns: columns, spacing: 14) {
@@ -49,6 +63,9 @@ struct OnboardingAppPickerView: View {
                     .foregroundStyle(Color.inkTertiary)
                     .accessibilityIdentifier("appPickerCount")
                 Spacer()
+                Button("← Back", action: onBack)
+                    .buttonStyle(OnboardingTextButtonStyle())
+                    .accessibilityIdentifier("appPickerBackButton")
                 Button("Clear") { flow.clearSelection() }
                     .buttonStyle(OnboardingTextButtonStyle())
                 finishButton
@@ -69,6 +86,20 @@ struct OnboardingAppPickerView: View {
         return selected + others
     }
 
+    private var selectAllTitle: String {
+        guard !apps.isEmpty else { return "Select All" }
+        return apps.allSatisfy { flow.selectedBundleIDs.contains($0.bundleID) } ? "Deselect All" : "Select All"
+    }
+
+    private func toggleAll() {
+        guard !apps.isEmpty else { return }
+        if apps.allSatisfy({ flow.selectedBundleIDs.contains($0.bundleID) }) {
+            flow.clearSelection()
+        } else {
+            flow.selectAll(apps.map(\.bundleID))
+        }
+    }
+
     @ViewBuilder
     private var finishButton: some View {
         Button(action: onFinish) {
@@ -77,6 +108,27 @@ struct OnboardingAppPickerView: View {
                 .foregroundStyle(.white)
         }
         .buttonStyle(OnboardingPrimaryButtonStyle())
+    }
+}
+
+struct OnboardingInlineLinkButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        OnboardingInlineLinkButtonBody(configuration: configuration)
+    }
+}
+
+private struct OnboardingInlineLinkButtonBody: View {
+    let configuration: ButtonStyle.Configuration
+    @State private var isHovered = false
+
+    var body: some View {
+        configuration.label
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(isHovered ? Color.guardAccentDeep : Color.guardAccent)
+            .underline(isHovered, color: Color.guardAccent)
+            .contentShape(Rectangle())
+            .onHover { isHovered = $0 }
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
 

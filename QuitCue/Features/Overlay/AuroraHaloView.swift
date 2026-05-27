@@ -227,9 +227,9 @@ private struct KbdKey: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+            .font(.system(size: 18, weight: .semibold, design: .monospaced))
             .foregroundStyle(.white)
-            .frame(width: 24, height: 24)
+            .frame(width: 30, height: 30)
             .background(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(Color.white.opacity(0.12))
