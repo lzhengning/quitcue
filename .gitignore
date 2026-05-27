@@ -28,3 +28,7 @@ Packages/
 
 # macOS
 .DS_Store
+
+# Agent-local files
+.claude/
+docs/superpowers/plans/
