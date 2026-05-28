@@ -23,6 +23,7 @@ final class OverlayWindow {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
+        panel.animationBehavior = .none
         panel.ignoresMouseEvents = true
         panel.isMovable = false
         panel.titleVisibility = .hidden
