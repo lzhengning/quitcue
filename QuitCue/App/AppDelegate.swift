@@ -142,8 +142,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        let scannedApps = installedAppsForControlPanel()
-        let content = ControlPanelView(installedApps: scannedApps)
+        let scannedApps = Self.installedAppsForControlPanel()
+        let content = ControlPanelView(
+            installedApps: scannedApps,
+            appScanner: Self.installedAppsForControlPanel
+        )
             .environment(whitelist)
             .environment(accessibility)
             .environment(settings)
@@ -222,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command)
     }
 
-    private func installedAppsForControlPanel() -> [InstalledApp] {
+    nonisolated private static func installedAppsForControlPanel() -> [InstalledApp] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "QuitCue.useUITestAppInventory") {
             return [

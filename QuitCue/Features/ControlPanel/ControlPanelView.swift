@@ -17,7 +17,7 @@ struct ControlPanelView: View {
     @Environment(ConfirmSettings.self) private var settings
     @Environment(LaunchAtLoginManager.self) private var launchAtLogin
 
-    @State private var installedApps: [InstalledApp] = []
+    @State private var appInventory: AppInventorySnapshot
     private let protectedAppsColumnCount = 5
     private let protectedAppsRowHeight: CGFloat = 70
     private let protectedAppsColumnSpacing: CGFloat = 6
@@ -29,9 +29,14 @@ struct ControlPanelView: View {
         protectedAppsColumnCount * protectedAppsMaxFullRows
     }
 
-    init(installedApps: [InstalledApp] = []) {
-        _installedApps = State(initialValue: installedApps)
+    init(
+        installedApps: [InstalledApp] = [],
+        appScanner: @escaping () -> [InstalledApp] = { AppInventory.scan() }
+    ) {
+        _appInventory = State(initialValue: AppInventorySnapshot(apps: installedApps, scanner: appScanner))
     }
+
+    private var installedApps: [InstalledApp] { appInventory.apps }
 
     var body: some View {
         @Bindable var settings = settings
@@ -67,8 +72,10 @@ struct ControlPanelView: View {
         .background(UnifiedWindowChromeConfigurator())
         .accessibilityIdentifier("accessibilityStatus")
         .onAppear {
-            let apps = loadInstalledAppsIfNeeded()
-            AppIconView.prefetch(apps, startingAt: protectedAppsVisibleTileCount)
+            refreshInstalledApps()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshInstalledApps()
         }
     }
 
@@ -601,11 +608,9 @@ struct ControlPanelView: View {
         mode == .hold ? ConfirmSettings.holdDurationRange : ConfirmSettings.doublePressWindowRange
     }
 
-    @discardableResult
-    private func loadInstalledAppsIfNeeded() -> [InstalledApp] {
-        guard installedApps.isEmpty else { return installedApps }
-        installedApps = AppInventory.scan()
-        return installedApps
+    private func refreshInstalledApps() {
+        let apps = appInventory.refresh()
+        AppIconView.prefetch(apps, startingAt: protectedAppsVisibleTileCount)
     }
 
 }
