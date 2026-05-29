@@ -72,6 +72,11 @@ final class OverlayController {
         applyPhase()
     }
 
+    func cancelActiveConfirmation() {
+        machine.reset()
+        hide()
+    }
+
     // MARK: - Progress for the view
 
     /// Used by `AuroraHaloView`'s `TimelineView` to animate halo and

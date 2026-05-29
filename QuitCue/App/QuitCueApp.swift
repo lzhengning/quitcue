@@ -34,7 +34,7 @@ struct QuitCueApp: App {
         // Spotlight / Launchpad (the launch re-activates the app and triggers
         // the settings window) or Cmd+Comma while any app window is frontmost.
         Settings {
-            ControlPanelView()
+            ControlPanelView(onQuitCueEnabledChange: appDelegate.setQuitCueEnabled)
                 .environment(appDelegate.whitelist)
                 .environment(appDelegate.accessibility)
                 .environment(appDelegate.settings)

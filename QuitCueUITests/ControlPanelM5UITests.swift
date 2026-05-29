@@ -50,6 +50,22 @@ final class ControlPanelM5UITests: QuitCueUITestCase {
         )
     }
 
+    func testDisabledLaunchShowsControlPanelForReEnable() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-com.quitcue.onboarding.completed", "YES",
+            "-QuitCue.useUITestAppInventory", "YES",
+            "-com.quitcue.enabled", "NO"
+        ]
+        app.launch()
+        addTeardownBlock { app.terminate() }
+
+        XCTAssertTrue(
+            app.staticTexts["Enable QuitCue"].waitForExistence(timeout: 5),
+            "disabled relaunch should show the control panel so the user can re-enable QuitCue"
+        )
+    }
+
     func testProtectedAppsEmptyStateByDefault() {
         // Force empty via launchArg override so the test is robust against
         // a whitelist persisted from previous manual dogfooding.

@@ -5,6 +5,69 @@ enum ControlPanelMetrics {
     static let width: CGFloat = 520
 }
 
+struct ProtectedAppTileModel: Equatable, Identifiable {
+    let bundleID: String
+    let name: String
+    let app: InstalledApp?
+
+    var id: String { bundleID }
+
+    init(app: InstalledApp) {
+        self.bundleID = app.bundleID
+        self.name = app.name
+        self.app = app
+    }
+
+    init(bundleID: String) {
+        self.bundleID = bundleID
+        self.name = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
+        self.app = nil
+    }
+}
+
+enum ProtectedAppTileOrdering {
+    static func orderedTiles(
+        selectedBundleIDs: [String],
+        installedApps: [InstalledApp]
+    ) -> [ProtectedAppTileModel] {
+        var byBundleID: [String: InstalledApp] = [:]
+        for app in installedApps where byBundleID[app.bundleID] == nil {
+            byBundleID[app.bundleID] = app
+        }
+
+        let selectedTiles = selectedBundleIDs
+            .map { bundleID -> ProtectedAppTileModel in
+                if let installed = byBundleID[bundleID] {
+                    return ProtectedAppTileModel(app: installed)
+                }
+                return ProtectedAppTileModel(bundleID: bundleID)
+            }
+            .sorted(by: areInDisplayNameOrder)
+
+        let selectedSet = Set(selectedBundleIDs)
+        let remainingTiles = installedApps
+            .filter { !selectedSet.contains($0.bundleID) }
+            .map(ProtectedAppTileModel.init(app:))
+            .sorted(by: areInDisplayNameOrder)
+
+        return selectedTiles + remainingTiles
+    }
+
+    private static func areInDisplayNameOrder(
+        _ lhs: ProtectedAppTileModel,
+        _ rhs: ProtectedAppTileModel
+    ) -> Bool {
+        switch lhs.name.localizedCaseInsensitiveCompare(rhs.name) {
+        case .orderedAscending:
+            return true
+        case .orderedDescending:
+            return false
+        case .orderedSame:
+            return lhs.bundleID.localizedCaseInsensitiveCompare(rhs.bundleID) == .orderedAscending
+        }
+    }
+}
+
 /// Settings surface reopened via Spotlight or Cmd+Comma.
 /// Per design canvas: identity header → Protected Apps → Confirm Method →
 /// Hold Duration → General. Accessibility surfaces only as a warning row
@@ -18,6 +81,7 @@ struct ControlPanelView: View {
     @Environment(LaunchAtLoginManager.self) private var launchAtLogin
 
     @State private var appInventory: AppInventorySnapshot
+    private let onQuitCueEnabledChange: @MainActor (Bool) -> Void
     private let protectedAppsColumnCount = 5
     private let protectedAppsRowHeight: CGFloat = 70
     private let protectedAppsColumnSpacing: CGFloat = 6
@@ -31,9 +95,11 @@ struct ControlPanelView: View {
 
     init(
         installedApps: [InstalledApp] = [],
-        appScanner: @escaping () -> [InstalledApp] = { AppInventory.scan() }
+        appScanner: @escaping () -> [InstalledApp] = { AppInventory.scan() },
+        onQuitCueEnabledChange: @escaping @MainActor (Bool) -> Void = { _ in }
     ) {
         _appInventory = State(initialValue: AppInventorySnapshot(apps: installedApps, scanner: appScanner))
+        self.onQuitCueEnabledChange = onQuitCueEnabledChange
     }
 
     private var installedApps: [InstalledApp] { appInventory.apps }
@@ -408,48 +474,10 @@ struct ControlPanelView: View {
     }
 
     private var orderedProtectedAppTiles: [ProtectedAppTileModel] {
-        let selectedIDs = whitelist.bundleIDs
-        var byBundleID: [String: InstalledApp] = [:]
-        for app in installedApps where byBundleID[app.bundleID] == nil {
-            byBundleID[app.bundleID] = app
-        }
-
-        let selectedTiles = selectedIDs
-            .sorted()
-            .map { bundleID -> ProtectedAppTileModel in
-                if let installed = byBundleID[bundleID] {
-                    return ProtectedAppTileModel(app: installed)
-                }
-                return ProtectedAppTileModel(bundleID: bundleID)
-            }
-
-        let selectedSet = Set(selectedIDs)
-        let remainingTiles = installedApps
-            .filter { !selectedSet.contains($0.bundleID) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            .map(ProtectedAppTileModel.init(app:))
-
-        return selectedTiles + remainingTiles
-    }
-
-    private struct ProtectedAppTileModel: Identifiable {
-        let bundleID: String
-        let name: String
-        let app: InstalledApp?
-
-        var id: String { bundleID }
-
-        init(app: InstalledApp) {
-            self.bundleID = app.bundleID
-            self.name = app.name
-            self.app = app
-        }
-
-        init(bundleID: String) {
-            self.bundleID = bundleID
-            self.name = bundleID.split(separator: ".").last.map(String.init) ?? bundleID
-            self.app = nil
-        }
+        ProtectedAppTileOrdering.orderedTiles(
+            selectedBundleIDs: whitelist.bundleIDs,
+            installedApps: installedApps
+        )
     }
 
     private struct ProtectedAppTile: View {
@@ -558,6 +586,9 @@ struct ControlPanelView: View {
                 PillToggle(isOn: $settings.isEnabled)
                     .accessibilityLabel("Enable QuitCue")
                     .accessibilityIdentifier("enableQuitCueToggle")
+                    .onChange(of: settings.isEnabled) { _, isEnabled in
+                        onQuitCueEnabledChange(isEnabled)
+                    }
             }
 
             nativeSeparator

@@ -25,3 +25,34 @@ final class AppInventorySnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.apps, [safari, figma])
     }
 }
+
+final class ControlPanelProtectedAppOrderingTests: XCTestCase {
+    func testSelectedTilesUseDisplayNameOrderAfterSelectAll() {
+        let alpha = InstalledApp(
+            bundleID: "com.example.beta",
+            name: "Alpha",
+            url: URL(fileURLWithPath: "/Applications/Alpha.app")
+        )
+        let figma = InstalledApp(
+            bundleID: "com.example.gamma",
+            name: "Figma",
+            url: URL(fileURLWithPath: "/Applications/Figma.app")
+        )
+        let zoom = InstalledApp(
+            bundleID: "com.example.alpha",
+            name: "Zoom",
+            url: URL(fileURLWithPath: "/Applications/Zoom.app")
+        )
+
+        let tiles = ProtectedAppTileOrdering.orderedTiles(
+            selectedBundleIDs: [
+                zoom.bundleID,
+                figma.bundleID,
+                alpha.bundleID
+            ],
+            installedApps: [alpha, figma, zoom]
+        )
+
+        XCTAssertEqual(tiles.map(\.name), ["Alpha", "Figma", "Zoom"])
+    }
+}

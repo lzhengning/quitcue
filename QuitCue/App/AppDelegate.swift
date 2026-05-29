@@ -19,6 +19,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) lazy var interceptor = CmdQInterceptor(store: whitelist)
     private var controlPanelWindow: NSWindow?
     private lazy var dockPresence = DockPresenceController(application: NSApp)
+    private lazy var enablement = QuitCueEnablementController(
+        settings: settings,
+        launchAtLogin: launchAtLogin,
+        startProtection: { [weak self] in self?.startInterceptorIfAuthorized() },
+        stopProtection: { [weak self] in self?.interceptor.stop() },
+        cancelActiveConfirmation: { [weak self] in self?.overlay.cancelActiveConfirmation() },
+        terminateApplication: { NSApp.terminate(nil) }
+    )
 
     override init() {
         // Suppress macOS's "unexpectedly quit while reopening windows"
@@ -80,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func startInterceptorIfAuthorized() {
+        guard settings.isEnabled else {
+            EventTapDiagnostics.log("protection disabled; interceptor not started")
+            return
+        }
         guard accessibility.isGranted else {
             EventTapDiagnostics.log("accessibility not granted")
             return
@@ -90,7 +102,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func showControlPanelIfRequested() {
-        guard UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch") else { return }
+        guard ControlPanelLaunchPolicy.shouldShowControlPanel(
+            showSettingsOnLaunch: UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch"),
+            isQuitCueEnabled: settings.isEnabled
+        ) else { return }
 
         DispatchQueue.main.async {
             self.showControlPanel()
@@ -145,7 +160,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let scannedApps = Self.installedAppsForControlPanel()
         let content = ControlPanelView(
             installedApps: scannedApps,
-            appScanner: Self.installedAppsForControlPanel
+            appScanner: Self.installedAppsForControlPanel,
+            onQuitCueEnabledChange: setQuitCueEnabled
         )
             .environment(whitelist)
             .environment(accessibility)
@@ -182,6 +198,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         dockPresence.hideControlPanel(window: controlPanelWindow)
     }
 
+    func setQuitCueEnabled(_ isEnabled: Bool) {
+        guard !Self.isPreviewHost else { return }
+
+        enablement.setEnabled(isEnabled)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Keep running after the window closes so the CGEventTap can keep
         // intercepting ⌘Q in the background.
@@ -207,8 +229,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func hideDockIfLaunchingWithoutVisibleWindow() {
-        guard OnboardingState.isComplete,
-              !UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch") else { return }
+        guard ControlPanelLaunchPolicy.shouldHideDockAfterLaunch(
+            onboardingComplete: OnboardingState.isComplete,
+            showSettingsOnLaunch: UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch"),
+            isQuitCueEnabled: settings.isEnabled
+        ) else { return }
 
         DispatchQueue.main.async {
             guard self.controlPanelWindow?.isVisible != true else { return }

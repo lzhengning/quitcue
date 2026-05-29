@@ -2,6 +2,7 @@
 set -euo pipefail
 
 APP_NAME="QuitCue"
+DMG_VOLUME_NAME="QuitCue Installer"
 SCHEME="QuitCue"
 CONFIGURATION="Release"
 
@@ -219,7 +220,7 @@ if [[ -z "${QUITCUE_DMG_BACKGROUND:-}" ]]; then
 fi
 
 CREATE_DMG_ARGS=(
-  --volname "${APP_NAME}"
+  --volname "${DMG_VOLUME_NAME}"
   --background "${BACKGROUND_PATH}"
   --window-pos 200 120
   --window-size 680 452

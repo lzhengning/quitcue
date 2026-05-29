@@ -97,7 +97,7 @@ grep -F -- "-configuration Release" "${LOG}" >/dev/null
 grep -F -- "-scheme QuitCue" "${LOG}" >/dev/null
 grep -F -- "MARKETING_VERSION=1.2.3" "${LOG}" >/dev/null
 grep -F -- "CURRENT_PROJECT_VERSION=456" "${LOG}" >/dev/null
-grep -F -- "create-dmg --volname QuitCue" "${LOG}" >/dev/null
+grep -F -- "create-dmg --volname QuitCue Installer" "${LOG}" >/dev/null
 grep -F -- "--window-size 680 452" "${LOG}" >/dev/null
 grep -F -- "--icon QuitCue.app 180 210" "${LOG}" >/dev/null
 grep -F -- "--app-drop-link 500 210" "${LOG}" >/dev/null

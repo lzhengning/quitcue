@@ -105,4 +105,19 @@ final class OverlayControllerTests: XCTestCase {
         XCTAssertEqual(confirmedBundleID, .some(.some("com.example.b")),
                        "second keyDown must fire onConfirm with the target bundle ID")
     }
+
+    func testCancelActiveConfirmationHidesOverlayAndResetsPhase() {
+        let settings = ConfirmSettings(defaults: defaults)
+        settings.mode = .doublePress
+        let controller = OverlayController()
+        controller.settingsSource = settings
+
+        controller.handleCmdQDown(bundleID: "com.example.cancel", appName: "Cancel")
+        XCTAssertTrue(controller.isVisible)
+
+        controller.cancelActiveConfirmation()
+
+        XCTAssertFalse(controller.isVisible)
+        XCTAssertEqual(controller.debugMachinePhase, .idle)
+    }
 }
