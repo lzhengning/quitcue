@@ -1,7 +1,7 @@
 # QuitCue
 
 <p align="center">
-  <img src="design/assets/icon.png" width="120" alt="QuitCue app icon">
+  <img src="docs/assets/quitcue-icon.png" width="120" alt="QuitCue app icon">
 </p>
 
 <h3 align="center">Stop one accidental Command-Q from breaking your flow.</h3>
@@ -32,7 +32,7 @@ See the core flow in 8 seconds: after you choose a protected app, QuitCue shows 
   <a href="docs/assets/quitcue-demo.mp4">Open the demo video directly if playback is unavailable</a>
 </p>
 
-![QuitCue protecting a desktop session](design/rendered/desktop-live-intercept-interactive.png)
+![QuitCue protecting a desktop session](docs/assets/quitcue-desktop-live-intercept.png)
 
 ## Why QuitCue
 
@@ -52,7 +52,7 @@ QuitCue follows a small set of product principles:
 
 QuitCue scans the macOS apps installed on your machine and lets you manage the protected list from a compact control panel. Protected apps are shown first, so you can quickly verify what QuitCue is guarding.
 
-![QuitCue control panel](design/rendered/control-panel-default.png)
+![QuitCue control panel](docs/assets/quitcue-control-panel.png)
 
 ### Two Confirmation Styles
 
@@ -62,8 +62,8 @@ Choose the style that best fits your muscle memory:
 - **Press Command-Q twice**: the first press shows the prompt, and the second press confirms within a short time window.
 
 <p align="center">
-  <img src="design/rendered/hold-default.png" width="48%" alt="Hold Command-Q confirmation">
-  <img src="design/rendered/double-press.png" width="48%" alt="Double press Command-Q confirmation">
+  <img src="docs/assets/quitcue-hold-confirmation.png" width="48%" alt="Hold Command-Q confirmation">
+  <img src="docs/assets/quitcue-double-press-confirmation.png" width="48%" alt="Double press Command-Q confirmation">
 </p>
 
 ### Built For Real macOS Behavior

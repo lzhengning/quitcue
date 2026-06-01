@@ -32,3 +32,11 @@ Packages/
 # Agent-local files
 .claude/
 docs/superpowers/plans/
+AGENTS.md
+CLAUDE.md
+Claude.MD
+agents.skills
+.agents/
+
+# Design source and rendered references
+design/
