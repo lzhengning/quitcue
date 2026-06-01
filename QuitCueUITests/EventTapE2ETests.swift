@@ -2,14 +2,14 @@ import XCTest
 import AppKit
 
 /// Event-tap E2E suite. Exercises QuitCue's `CGEventTap` interception
-/// against a real target app (Calculator) inside the authorised VM.
+/// against a real target app (Calculator) inside an authorised VM.
 ///
 /// These tests require:
 ///   - /Applications/QuitCue.app staged with a stable local signing
-///     identity (the private VM harness handles this).
+///     identity.
 ///   - /usr/local/bin/keysender CLI baked into the same snapshot.
 ///   - Accessibility + Input Monitoring granted to BOTH the QuitCue
-///     bundle and keysender (captured in authorised VM snapshot).
+///     bundle and keysender.
 ///
 /// We can't drive ⌘Q from XCUITest's `typeKey` because that path goes
 /// through AX/Apple Events and never reaches a CGEventTap. Instead we
@@ -31,11 +31,11 @@ final class EventTapE2ETests: QuitCueUITestCase {
         let fm = FileManager.default
         try XCTSkipUnless(
             fm.fileExists(atPath: Self.stagedBundlePath),
-            "No staged /Applications/QuitCue.app — stage the app in the authorised VM first."
+            "No staged /Applications/QuitCue.app in the authorised VM."
         )
         try XCTSkipUnless(
             fm.fileExists(atPath: Self.keysenderPath),
-            "No /Applications/Keysender.app — stage Keysender in the authorised VM."
+            "No /Applications/Keysender.app in the authorised VM."
         )
     }
 
@@ -176,7 +176,7 @@ final class EventTapE2ETests: QuitCueUITestCase {
         // has no PostEvent grant; sshd-keygen-wrapper is granted
         // everything in the Cirrus image. Bypassing the chain is the
         // only reliable way to get CGEventPost to actually land.
-        // The VM harness sets up the key inside the ephemeral VM.
+        // The VM harness sets up this key inside the ephemeral VM.
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
         proc.arguments = [
