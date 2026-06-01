@@ -32,8 +32,6 @@ See the core flow in 8 seconds: after you choose a protected app, QuitCue shows 
   <a href="docs/assets/quitcue-demo.mp4">Open the demo video directly if playback is unavailable</a>
 </p>
 
-![QuitCue protecting a desktop session](docs/assets/quitcue-desktop-live-intercept.png)
-
 ## Why QuitCue
 
 Every serious Mac user knows the moment: an IDE is running a task, a design file is not saved, a terminal command is still going, and your fingers hit <kbd>Command-Q</kbd> out of habit. Quitting is not the real problem. Accidental quitting is too fast, too easy, and too costly.

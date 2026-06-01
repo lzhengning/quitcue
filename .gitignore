@@ -31,12 +31,17 @@ Packages/
 
 # Agent-local files
 .claude/
-docs/superpowers/plans/
+.codex/
+docs/superpowers/
 AGENTS.md
 CLAUDE.md
 Claude.MD
 agents.skills
 .agents/
+skills-lock.json
 
 # Design source and rendered references
 design/
+
+# Local VM test harness
+tart/
