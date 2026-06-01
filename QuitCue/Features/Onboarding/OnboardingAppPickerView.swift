@@ -12,6 +12,8 @@ struct OnboardingAppPickerView: View {
     static let visibleTileCount = 20
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 5)
+    @State private var typeAheadLocator = AppTypeAheadLocator()
+    @State private var locatedBundleID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,16 +44,29 @@ struct OnboardingAppPickerView: View {
             .padding(.horizontal, 2)
             .padding(.bottom, 8)
 
-            ScrollView(.vertical, showsIndicators: true) {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(orderedApps, id: \.bundleID) { app in
-                        AppPickerTile(app: app, checked: flow.selectedBundleIDs.contains(app.bundleID)) {
-                            flow.toggle(app.bundleID)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(orderedApps, id: \.bundleID) { app in
+                            AppPickerTile(
+                                app: app,
+                                checked: flow.selectedBundleIDs.contains(app.bundleID),
+                                located: locatedBundleID == app.bundleID
+                            ) {
+                                flow.toggle(app.bundleID)
+                            }
+                            .id(app.bundleID)
                         }
                     }
+                    .padding(.vertical, 4)
+                    .background(OverlayScrollerConfigurator())
                 }
-                .padding(.vertical, 4)
-                .background(OverlayScrollerConfigurator())
+                .onChange(of: locatedBundleID) { _, bundleID in
+                    guard let bundleID else { return }
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        proxy.scrollTo(bundleID, anchor: .center)
+                    }
+                }
             }
             .frame(minHeight: 240)
 
@@ -78,6 +93,7 @@ struct OnboardingAppPickerView: View {
         .padding(.top, 28)
         .padding(.bottom, 26)
         .frame(minWidth: 460, minHeight: 458)
+        .onTypeAheadCharacter(handleTypeAheadCharacter)
     }
 
     private var orderedApps: [InstalledApp] {
@@ -97,6 +113,27 @@ struct OnboardingAppPickerView: View {
             flow.clearSelection()
         } else {
             flow.selectAll(apps.map(\.bundleID))
+        }
+    }
+
+    private func handleTypeAheadCharacter(_ character: String) -> Bool {
+        guard let match = typeAheadLocator.locate(
+            typedCharacter: character,
+            in: orderedApps,
+            currentBundleID: locatedBundleID
+        ) else {
+            return false
+        }
+
+        locatedBundleID = match.bundleID
+        clearLocatedBundleID(after: match.bundleID)
+        return true
+    }
+
+    private func clearLocatedBundleID(after bundleID: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            guard locatedBundleID == bundleID else { return }
+            locatedBundleID = nil
         }
     }
 
@@ -135,6 +172,7 @@ private struct OnboardingInlineLinkButtonBody: View {
 private struct AppPickerTile: View {
     let app: InstalledApp
     let checked: Bool
+    let located: Bool
     let onToggle: () -> Void
 
     @State private var isHovered = false
@@ -165,11 +203,12 @@ private struct AppPickerTile: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(tileStroke, lineWidth: checked ? 1 : 0.5)
             )
-            .shadow(color: tileShadow, radius: isHovered ? 7 : 0, y: isHovered ? 3 : 0)
-            .opacity(checked || isHovered ? 1 : 0.78)
-            .scaleEffect(isHovered ? 1.015 : 1)
+            .shadow(color: tileShadow, radius: isHovered || located ? 7 : 0, y: isHovered || located ? 3 : 0)
+            .opacity(checked || isHovered || located ? 1 : 0.78)
+            .scaleEffect(isHovered ? 1.015 : located ? 1.01 : 1)
             .animation(.easeInOut(duration: 0.12), value: checked)
             .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.12), value: located)
         }
         .buttonStyle(.plain)
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -181,17 +220,23 @@ private struct AppPickerTile: View {
         if checked {
             return Color.guardAccentTint
         }
-        return isHovered ? Color.glassPillBackground : Color.clear
+        return isHovered || located ? Color.glassPillBackground : Color.clear
     }
 
     private var tileStroke: Color {
         if checked {
             return isHovered ? Color.guardAccent.opacity(0.9) : Color.guardAccent
         }
+        if located {
+            return Color.guardAccent.opacity(0.75)
+        }
         return isHovered ? Color.glassPillLine : Color.clear
     }
 
     private var tileShadow: Color {
+        if located {
+            return Color.guardAccent.opacity(0.14)
+        }
         if checked {
             return Color.guardAccent.opacity(isHovered ? 0.18 : 0)
         }

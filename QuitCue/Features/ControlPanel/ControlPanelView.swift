@@ -25,6 +25,8 @@ struct ProtectedAppTileModel: Equatable, Identifiable {
     }
 }
 
+extension ProtectedAppTileModel: AppTypeAheadLocatable {}
+
 enum ProtectedAppTileOrdering {
     static func orderedTiles(
         selectedBundleIDs: [String],
@@ -81,6 +83,8 @@ struct ControlPanelView: View {
     @Environment(LaunchAtLoginManager.self) private var launchAtLogin
 
     @State private var appInventory: AppInventorySnapshot
+    @State private var protectedAppsTypeAheadLocator = AppTypeAheadLocator()
+    @State private var locatedProtectedAppBundleID: String?
     private let onQuitCueEnabledChange: @MainActor (Bool) -> Void
     private let protectedAppsColumnCount = 5
     private let protectedAppsRowHeight: CGFloat = 70
@@ -137,6 +141,7 @@ struct ControlPanelView: View {
         .background(GlassWindowBackground())
         .background(UnifiedWindowChromeConfigurator())
         .accessibilityIdentifier("accessibilityStatus")
+        .onTypeAheadCharacter(handleProtectedAppsTypeAheadCharacter)
         .onAppear {
             refreshInstalledApps()
         }
@@ -399,27 +404,37 @@ struct ControlPanelView: View {
         } content: {
             let tiles = orderedProtectedAppTiles
 
-            ScrollView(.vertical, showsIndicators: true) {
-                LazyVGrid(columns: protectedAppColumns, spacing: protectedAppsRowSpacing) {
-                    ForEach(tiles) { tile in
-                        ProtectedAppTile(
-                            tile: tile,
-                            checked: whitelist.contains(tile.bundleID),
-                            rowHeight: protectedAppsRowHeight,
-                            onToggle: {
-                                if whitelist.contains(tile.bundleID) {
-                                    whitelist.remove(tile.bundleID)
-                                } else {
-                                    whitelist.add(tile.bundleID)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVGrid(columns: protectedAppColumns, spacing: protectedAppsRowSpacing) {
+                        ForEach(tiles) { tile in
+                            ProtectedAppTile(
+                                tile: tile,
+                                checked: whitelist.contains(tile.bundleID),
+                                located: locatedProtectedAppBundleID == tile.bundleID,
+                                rowHeight: protectedAppsRowHeight,
+                                onToggle: {
+                                    if whitelist.contains(tile.bundleID) {
+                                        whitelist.remove(tile.bundleID)
+                                    } else {
+                                        whitelist.add(tile.bundleID)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                            .id(tile.bundleID)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 12)
+                    .padding(.bottom, whitelist.bundleIDs.isEmpty ? 6 : 10)
+                    .background(OverlayScrollerConfigurator())
+                }
+                .onChange(of: locatedProtectedAppBundleID) { _, bundleID in
+                    guard let bundleID else { return }
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        proxy.scrollTo(bundleID, anchor: .center)
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.top, 12)
-                .padding(.bottom, whitelist.bundleIDs.isEmpty ? 6 : 10)
-                .background(OverlayScrollerConfigurator())
             }
             .frame(height: protectedAppsGridHeight(for: tiles.count))
 
@@ -454,6 +469,27 @@ struct ControlPanelView: View {
         }
     }
 
+    private func handleProtectedAppsTypeAheadCharacter(_ character: String) -> Bool {
+        guard let match = protectedAppsTypeAheadLocator.locate(
+            typedCharacter: character,
+            in: orderedProtectedAppTiles,
+            currentBundleID: locatedProtectedAppBundleID
+        ) else {
+            return false
+        }
+
+        locatedProtectedAppBundleID = match.bundleID
+        clearLocatedProtectedAppBundleID(after: match.bundleID)
+        return true
+    }
+
+    private func clearLocatedProtectedAppBundleID(after bundleID: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            guard locatedProtectedAppBundleID == bundleID else { return }
+            locatedProtectedAppBundleID = nil
+        }
+    }
+
     private var protectedAppColumns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: protectedAppsColumnSpacing), count: protectedAppsColumnCount)
     }
@@ -483,6 +519,7 @@ struct ControlPanelView: View {
     private struct ProtectedAppTile: View {
         let tile: ProtectedAppTileModel
         let checked: Bool
+        let located: Bool
         let rowHeight: CGFloat
         let onToggle: () -> Void
 
@@ -526,9 +563,9 @@ struct ControlPanelView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .strokeBorder(tileStroke, lineWidth: checked ? 1 : 0.5)
                 )
-                .shadow(color: tileShadow, radius: isHovered ? 7 : 0, y: isHovered ? 3 : 0)
-                .opacity(checked || isHovered ? 1 : 0.7)
-                .scaleEffect(isHovered ? 1.015 : 1)
+                .shadow(color: tileShadow, radius: isHovered || located ? 7 : 0, y: isHovered || located ? 3 : 0)
+                .opacity(checked || isHovered || located ? 1 : 0.7)
+                .scaleEffect(isHovered ? 1.015 : located ? 1.01 : 1)
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -537,23 +574,30 @@ struct ControlPanelView: View {
             .accessibilityLabel(checked ? "Stop protecting \(tile.name)" : "Protect \(tile.name)")
             .animation(.easeInOut(duration: 0.12), value: checked)
             .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.12), value: located)
         }
 
         private var tileFill: Color {
             if checked {
                 return Color.guardAccentTint
             }
-            return isHovered ? Color.glassPillBackground : Color.clear
+            return isHovered || located ? Color.glassPillBackground : Color.clear
         }
 
         private var tileStroke: Color {
             if checked {
                 return isHovered ? Color.guardAccent.opacity(0.9) : Color.guardAccent
             }
+            if located {
+                return Color.guardAccent.opacity(0.75)
+            }
             return isHovered ? Color.glassPillLine : Color.clear
         }
 
         private var tileShadow: Color {
+            if located {
+                return Color.guardAccent.opacity(0.14)
+            }
             if checked {
                 return Color.guardAccent.opacity(isHovered ? 0.18 : 0)
             }
