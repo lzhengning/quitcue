@@ -24,13 +24,9 @@
 
 See the core flow in 8 seconds: after you choose a protected app, QuitCue shows a confirmation overlay when that app receives <kbd>Command-Q</kbd>, and the app stays open until you confirm.
 
-<p align="center">
-  <video src="docs/assets/quitcue-demo.mp4" poster="docs/assets/quitcue-demo-poster.png" controls width="100%" title="QuitCue demo video"></video>
-</p>
 
-<p align="center">
-  <a href="docs/assets/quitcue-demo.mp4">Open the demo video directly if playback is unavailable</a>
-</p>
+https://github.com/user-attachments/assets/e6732bb3-4764-4c1d-9d86-e60b60499ffc
+
 
 ## Why QuitCue
 
