@@ -1,0 +1,204 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Build signed DMG
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    env:
+      NOTARY_PROFILE: quitcue-notary
+      RELEASE_SIGNING_MODE: ${{ vars.QUITCUE_RELEASE_SIGNING_MODE || 'developer-id' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate release configuration
+        env:
+          APPLE_DEVELOPMENT_P12_BASE64: ${{ secrets.APPLE_DEVELOPMENT_P12_BASE64 }}
+          APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          DEVELOPER_ID_APPLICATION_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
+          QUITCUE_CODESIGN_IDENTITY: ${{ secrets.QUITCUE_CODESIGN_IDENTITY }}
+        run: |
+          missing=0
+          case "${RELEASE_SIGNING_MODE}" in
+            developer-id)
+              required=(
+                APPLE_APP_SPECIFIC_PASSWORD
+                APPLE_ID
+                APPLE_TEAM_ID
+                DEVELOPER_ID_APPLICATION_P12_BASE64
+                DEVELOPER_ID_APPLICATION_P12_PASSWORD
+                QUITCUE_CODESIGN_IDENTITY
+              )
+              ;;
+            apple-development)
+              required=(
+                APPLE_DEVELOPMENT_P12_BASE64
+                APPLE_DEVELOPMENT_P12_PASSWORD
+                APPLE_TEAM_ID
+                QUITCUE_CODESIGN_IDENTITY
+              )
+              ;;
+            *)
+              echo "::error::Unsupported QUITCUE_RELEASE_SIGNING_MODE: ${RELEASE_SIGNING_MODE}"
+              exit 1
+              ;;
+          esac
+
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required release setting: ${name}"
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+      - name: Install build tools
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen create-dmg
+
+      - name: Validate tag matches project version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          project_version="$(ruby -ryaml -e 'puts YAML.load_file("project.yml")["settings"]["base"]["MARKETING_VERSION"]')"
+
+          if [[ "${tag_version}" != "${project_version}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match MARKETING_VERSION ${project_version}"
+            exit 1
+          fi
+
+          echo "QUITCUE_RELEASE_VERSION=${tag_version}" >> "${GITHUB_ENV}"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Import signing certificate
+        env:
+          APPLE_DEVELOPMENT_P12_BASE64: ${{ secrets.APPLE_DEVELOPMENT_P12_BASE64 }}
+          APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          DEVELOPER_ID_APPLICATION_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
+        run: |
+          if [[ "${RELEASE_SIGNING_MODE}" == "apple-development" ]]; then
+            certificate_base64="${APPLE_DEVELOPMENT_P12_BASE64}"
+            certificate_password="${APPLE_DEVELOPMENT_P12_PASSWORD}"
+          else
+            certificate_base64="${DEVELOPER_ID_APPLICATION_P12_BASE64}"
+            certificate_password="${DEVELOPER_ID_APPLICATION_P12_PASSWORD}"
+          fi
+
+          certificate_path="${RUNNER_TEMP}/signing-certificate.p12"
+          keychain_path="${RUNNER_TEMP}/quitcue-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          echo "${certificate_base64}" | base64 --decode > "${certificate_path}"
+
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security import "${certificate_path}" \
+            -P "${certificate_password}" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "${keychain_path}"
+          existing_keychains=()
+          while IFS= read -r keychain; do
+            existing_keychains+=("${keychain//\"/}")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${keychain_path}" "${existing_keychains[@]}"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "${keychain_password}" \
+            "${keychain_path}"
+
+      - name: Configure notarization credentials
+        if: env.RELEASE_SIGNING_MODE == 'developer-id'
+        env:
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool store-credentials "${NOTARY_PROFILE}" \
+            --apple-id "${APPLE_ID}" \
+            --team-id "${APPLE_TEAM_ID}" \
+            --password "${APPLE_APP_SPECIFIC_PASSWORD}"
+
+      - name: Build release DMG
+        env:
+          QUITCUE_CODESIGN_IDENTITY: ${{ secrets.QUITCUE_CODESIGN_IDENTITY }}
+          QUITCUE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [[ "${RELEASE_SIGNING_MODE}" == "developer-id" ]]; then
+            export QUITCUE_NOTARY_PROFILE="${NOTARY_PROFILE}"
+          fi
+
+          scripts/package-release-dmg.sh
+
+      - name: Verify release artifact
+        run: |
+          app_path="build/ReleaseDerivedData/Build/Products/Release/QuitCue.app"
+          dmg_path="dist/QuitCue-${QUITCUE_RELEASE_VERSION}.dmg"
+
+          codesign --verify --deep --strict --verbose=2 "${app_path}"
+
+          if [[ "${RELEASE_SIGNING_MODE}" == "developer-id" ]]; then
+            spctl --assess --type execute --verbose=4 "${app_path}"
+            spctl --assess --type open --verbose=4 "${dmg_path}"
+          else
+            echo "::notice::Apple Development signing mode skips Gatekeeper assessment and notarization checks."
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${QUITCUE_RELEASE_VERSION}"
+          dmg_path="dist/QuitCue-${version}.dmg"
+          notes_path="${RUNNER_TEMP}/release-notes.md"
+
+          release_flags=()
+          if [[ "${RELEASE_SIGNING_MODE}" == "apple-development" ]]; then
+            release_flags+=(--prerelease)
+            cat > "${notes_path}" <<NOTES
+          QuitCue ${version} for macOS 14 and later.
+
+          This artifact is signed with an Apple Development certificate to exercise the Release pipeline. It is not notarized and is not a public distribution build.
+          NOTES
+          else
+            cat > "${notes_path}" <<NOTES
+          QuitCue ${version} for macOS 14 and later.
+          NOTES
+          fi
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${dmg_path}" --clobber
+            gh release edit "${tag}" \
+              --title "QuitCue ${version}" \
+              --notes-file "${notes_path}" \
+              "${release_flags[@]}"
+          else
+            gh release create "${tag}" "${dmg_path}" \
+              --title "QuitCue ${version}" \
+              --notes-file "${notes_path}" \
+              "${release_flags[@]}"
+          fi
