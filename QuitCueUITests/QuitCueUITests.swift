@@ -19,7 +19,9 @@ final class QuitCueUITests: QuitCueUITestCase {
     func testOnboardingWindowAppearsOnFirstRun() {
         let app = XCUIApplication()
         app.launchArguments = [
-"-com.quitcue.onboarding.completed", "NO"
+            "-com.quitcue.onboarding.completed", "NO",
+            "-com.quitcue.enabled", "NO",
+            "-QuitCue.useUITestAppInventory", "YES"
         ]
         app.launch()
         addTeardownBlock { app.terminate() }
@@ -28,6 +30,10 @@ final class QuitCueUITests: QuitCueUITestCase {
         XCTAssertTrue(
             welcomeTitle.waitForExistence(timeout: 5),
             "Onboarding window did not appear when onboarding was not yet complete"
+        )
+        XCTAssertFalse(
+            app.staticTexts["Protected Apps"].waitForExistence(timeout: 1),
+            "first run should not also open the Control Panel while onboarding is incomplete"
         )
     }
 

@@ -1,9 +1,10 @@
 enum ControlPanelLaunchPolicy {
     static func shouldShowControlPanel(
+        onboardingComplete: Bool,
         showSettingsOnLaunch: Bool,
         isQuitCueEnabled: Bool
     ) -> Bool {
-        showSettingsOnLaunch || !isQuitCueEnabled
+        showSettingsOnLaunch || (onboardingComplete && !isQuitCueEnabled)
     }
 
     static func shouldHideDockAfterLaunch(

@@ -173,6 +173,13 @@ if [[ -n "${SIGNING_IDENTITY}" ]]; then
     CODE_SIGN_STYLE=Manual
     "CODE_SIGN_IDENTITY=${SIGNING_IDENTITY}"
   )
+
+  if [[ "${SIGNING_IDENTITY}" == Developer\ ID\ Application:* ]]; then
+    BUILD_ARGS+=(
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+      OTHER_CODE_SIGN_FLAGS=--timestamp
+    )
+  fi
 fi
 
 if [[ -n "${DEVELOPMENT_TEAM}" ]]; then

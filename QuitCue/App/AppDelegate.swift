@@ -107,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func showControlPanelIfRequested() {
         guard ControlPanelLaunchPolicy.shouldShowControlPanel(
+            onboardingComplete: OnboardingState.isComplete,
             showSettingsOnLaunch: UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch"),
             isQuitCueEnabled: settings.isEnabled
         ) else { return }

@@ -83,6 +83,7 @@ QUITCUE_TEST_LOG="${LOG}" \
   "${ROOT}/scripts/package-release-dmg.sh" \
     --output-dir "${OUT_DIR}" \
     --derived-data "${DERIVED_DATA}" \
+    --signing-identity "Developer ID Application: Test Developer (ABCDE12345)" \
     --marketing-version 1.2.3 \
     --build-number 456 \
     --no-clean
@@ -95,6 +96,9 @@ DMG="${OUT_DIR}/QuitCue-1.2.3.dmg"
 
 grep -F -- "-configuration Release" "${LOG}" >/dev/null
 grep -F -- "-scheme QuitCue" "${LOG}" >/dev/null
+grep -F -- "CODE_SIGN_IDENTITY=Developer ID Application: Test Developer (ABCDE12345)" "${LOG}" >/dev/null
+grep -F -- "CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO" "${LOG}" >/dev/null
+grep -F -- "OTHER_CODE_SIGN_FLAGS=--timestamp" "${LOG}" >/dev/null
 grep -F -- "MARKETING_VERSION=1.2.3" "${LOG}" >/dev/null
 grep -F -- "CURRENT_PROJECT_VERSION=456" "${LOG}" >/dev/null
 grep -F -- "create-dmg --volname QuitCue Installer" "${LOG}" >/dev/null
