@@ -73,6 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func wireOverlayPipeline() {
         overlay.settingsSource = settings
         interceptor.isEnabled = { ConfirmSettings.isProtectionEnabled() }
+        interceptor.suppressesSequenceUntilCommandUp = {
+            let rawMode = UserDefaults.standard.string(forKey: ConfirmSettings.modeKey)
+            return (rawMode.flatMap(ConfirmMode.init(rawValue:)) ?? .hold) == .hold
+        }
         interceptor.onCmdQDown = { [weak self] bundleID, appName in
             self?.overlay.handleCmdQDown(bundleID: bundleID, appName: appName)
         }
@@ -103,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func showControlPanelIfRequested() {
         guard ControlPanelLaunchPolicy.shouldShowControlPanel(
+            onboardingComplete: OnboardingState.isComplete,
             showSettingsOnLaunch: UserDefaults.standard.bool(forKey: "QuitCue.showSettingsOnLaunch"),
             isQuitCueEnabled: settings.isEnabled
         ) else { return }

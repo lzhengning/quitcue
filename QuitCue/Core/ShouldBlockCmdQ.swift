@@ -38,21 +38,32 @@ enum CmdQKeyDownDecision: Equatable {
     case suppressRepeat
 }
 
+private enum CmdQSequenceReleasePolicy {
+    case qOrCommandUp
+    case commandUp
+}
+
+private enum CmdQSequenceState {
+    case idle
+    case suppressing(CmdQSequenceReleasePolicy)
+}
+
 struct CmdQInterceptionState {
-    private var isSuppressingCmdQSequence = false
+    private var sequenceState: CmdQSequenceState = .idle
 
     mutating func keyDownDecision(
         keyCode: CGKeyCode,
         flags: CGEventFlags,
         frontmostBundleID: String?,
         whitelist: [String],
-        isEnabled: Bool = true
+        isEnabled: Bool = true,
+        suppressUntilCommandUp: Bool = false
     ) -> CmdQKeyDownDecision {
         guard keyCode == kVK_ANSI_Q, flags.contains(.maskCommand) else {
             return .pass
         }
 
-        if isSuppressingCmdQSequence {
+        if case .suppressing = sequenceState {
             return .suppressRepeat
         }
 
@@ -63,7 +74,9 @@ struct CmdQInterceptionState {
             whitelist: whitelist,
             isEnabled: isEnabled
         ) {
-            isSuppressingCmdQSequence = true
+            sequenceState = .suppressing(
+                suppressUntilCommandUp ? .commandUp : .qOrCommandUp
+            )
             return .startBlockedSequence
         }
 
@@ -72,13 +85,21 @@ struct CmdQInterceptionState {
 
     mutating func keyUpShouldNotify(keyCode: CGKeyCode) -> Bool {
         guard keyCode == kVK_ANSI_Q else { return false }
-        isSuppressingCmdQSequence = false
-        return true
+
+        switch sequenceState {
+        case .idle:
+            return true
+        case .suppressing(.qOrCommandUp):
+            sequenceState = .idle
+            return true
+        case .suppressing(.commandUp):
+            return true
+        }
     }
 
     mutating func flagsChangedShouldNotify(flags: CGEventFlags) -> Bool {
         guard !flags.contains(.maskCommand) else { return false }
-        isSuppressingCmdQSequence = false
+        sequenceState = .idle
         return true
     }
 }

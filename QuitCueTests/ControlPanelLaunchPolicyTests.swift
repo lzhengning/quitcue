@@ -5,6 +5,7 @@ final class ControlPanelLaunchPolicyTests: XCTestCase {
     func testShowsControlPanelWhenLaunchArgumentRequestsIt() {
         XCTAssertTrue(
             ControlPanelLaunchPolicy.shouldShowControlPanel(
+                onboardingComplete: false,
                 showSettingsOnLaunch: true,
                 isQuitCueEnabled: true
             )
@@ -14,6 +15,17 @@ final class ControlPanelLaunchPolicyTests: XCTestCase {
     func testShowsControlPanelWhenQuitCueIsDisabledSoUserCanReEnable() {
         XCTAssertTrue(
             ControlPanelLaunchPolicy.shouldShowControlPanel(
+                onboardingComplete: true,
+                showSettingsOnLaunch: false,
+                isQuitCueEnabled: false
+            )
+        )
+    }
+
+    func testDoesNotShowControlPanelBeforeOnboardingCompletesJustBecauseQuitCueIsDisabled() {
+        XCTAssertFalse(
+            ControlPanelLaunchPolicy.shouldShowControlPanel(
+                onboardingComplete: false,
                 showSettingsOnLaunch: false,
                 isQuitCueEnabled: false
             )

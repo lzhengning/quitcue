@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+
+      - name: Install build tools
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen create-dmg
+
+      - name: Run release script tests
+        run: |
+          bash tests/prepare-release.test.sh
+          bash tests/package-release-dmg.test.sh
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build and run unit tests
+        run: |
+          xcodebuild test \
+            -project QuitCue.xcodeproj \
+            -scheme QuitCue \
+            -destination 'platform=macOS' \
+            -only-testing:QuitCueTests \
+            CODE_SIGNING_ALLOWED=NO

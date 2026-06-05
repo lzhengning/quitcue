@@ -18,12 +18,14 @@ final class CmdQInterceptor {
     private let store: WhitelistStore
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private let stateLock = NSLock()
     private var interceptionState = CmdQInterceptionState()
 
     /// Dispatched on the main actor.
     var onCmdQDown: (@MainActor @Sendable (_ bundleID: String?, _ appName: String?) -> Void)?
     var onCmdQUp: (@MainActor @Sendable () -> Void)?
     var isEnabled: @Sendable () -> Bool = { true }
+    var suppressesSequenceUntilCommandUp: @Sendable () -> Bool = { false }
 
     init(store: WhitelistStore) {
         self.store = store
@@ -88,13 +90,17 @@ final class CmdQInterceptor {
             let bundleID = front?.bundleIdentifier
             let appName = front?.localizedName
 
-            switch me.interceptionState.keyDownDecision(
-                keyCode: keyCode,
-                flags: flags,
-                frontmostBundleID: bundleID,
-                whitelist: me.store.bundleIDs,
-                isEnabled: me.isEnabled()
-            ) {
+            let decision = me.withInterceptionState { state in
+                state.keyDownDecision(
+                    keyCode: keyCode,
+                    flags: flags,
+                    frontmostBundleID: bundleID,
+                    whitelist: me.store.bundleIDs,
+                    isEnabled: me.isEnabled(),
+                    suppressUntilCommandUp: me.suppressesSequenceUntilCommandUp()
+                )
+            }
+            switch decision {
             case .startBlockedSequence:
                 debugLog("blocking keyDown keyCode=\(keyCode) frontmost=\(bundleID ?? "nil") whitelist=\(me.store.bundleIDs)")
                 if let handler = me.onCmdQDown {
@@ -110,12 +116,18 @@ final class CmdQInterceptor {
 
         case .keyUp:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            if me.interceptionState.keyUpShouldNotify(keyCode: keyCode), let handler = me.onCmdQUp {
+            let shouldNotify = me.withInterceptionState { state in
+                state.keyUpShouldNotify(keyCode: keyCode)
+            }
+            if shouldNotify, let handler = me.onCmdQUp {
                 Task { @MainActor in handler() }
             }
 
         case .flagsChanged:
-            if me.interceptionState.flagsChangedShouldNotify(flags: event.flags), let handler = me.onCmdQUp {
+            let shouldNotify = me.withInterceptionState { state in
+                state.flagsChangedShouldNotify(flags: event.flags)
+            }
+            if shouldNotify, let handler = me.onCmdQUp {
                 Task { @MainActor in handler() }
             }
 
@@ -124,6 +136,14 @@ final class CmdQInterceptor {
         }
 
         return Unmanaged.passUnretained(event)
+    }
+
+    private func withInterceptionState<T>(
+        _ body: (inout CmdQInterceptionState) -> T
+    ) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body(&interceptionState)
     }
 }
 

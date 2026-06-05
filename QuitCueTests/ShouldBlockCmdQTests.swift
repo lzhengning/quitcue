@@ -133,6 +133,41 @@ final class ShouldBlockCmdQTests: XCTestCase {
         )
     }
 
+    func testHoldModeSuppressionIgnoresQKeyUpUntilCommandRelease() {
+        var state = CmdQInterceptionState()
+
+        _ = state.keyDownDecision(
+            keyCode: kVK_ANSI_Q,
+            flags: .maskCommand,
+            frontmostBundleID: "com.apple.Safari",
+            whitelist: whitelist,
+            suppressUntilCommandUp: true
+        )
+
+        XCTAssertTrue(state.keyUpShouldNotify(keyCode: kVK_ANSI_Q))
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.apple.TextEdit",
+                whitelist: ["com.apple.TextEdit"]
+            ),
+            .suppressRepeat,
+            "hold-mode physical Cmd+Q sequence must stay swallowed after focus changes"
+        )
+
+        XCTAssertTrue(state.flagsChangedShouldNotify(flags: []))
+        XCTAssertEqual(
+            state.keyDownDecision(
+                keyCode: kVK_ANSI_Q,
+                flags: .maskCommand,
+                frontmostBundleID: "com.apple.TextEdit",
+                whitelist: ["com.apple.TextEdit"]
+            ),
+            .startBlockedSequence
+        )
+    }
+
     func testSuppressingHeldCmdQResetsOnCommandRelease() {
         var state = CmdQInterceptionState()
 
